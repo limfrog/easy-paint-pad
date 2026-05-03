@@ -13,6 +13,9 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNyIgZmlsbD0iIzFhNmZkNCIvPjx0ZXh0IHg9IjQiIHk9IjI0IiBmb250LWZhbWlseT0iQXJpYWwgQmxhY2ssQXJpYWwiIGZvbnQtd2VpZ2h0PSI5MDAiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IndoaXRlIj5FPC90ZXh0Pjx0ZXh0IHg9IjE3IiB5PSIyNCIgZm9udC1mYW1pbHk9IkFyaWFsIEJsYWNrLEFyaWFsIiBmb250LXdlaWdodD0iOTAwIiBmb250LXNpemU9IjE4IiBmaWxsPSIjN2RkNGZjIj5QPC90ZXh0PjxyZWN0IHg9IjMiIHk9IjI3IiB3aWR0aD0iMjYiIGhlaWdodD0iMi41IiByeD0iMS4yIiBmaWxsPSIjNGRhM2ZmIiBvcGFjaXR5PSIwLjgiLz48L3N2Zz4=">
 <link rel="icon" type="image/png" sizes="32x32" href="./favicon.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic:wght@400;700;800&family=Nanum+Myeongjo:wght@400;700;800&family=Nanum+Pen+Script&family=Noto+Sans+KR:wght@400;700&family=Noto+Serif+KR:wght@400;700&family=Black+Han+Sans&family=Gowun+Dodum&family=Gowun+Batang&family=Sunflower:wght@300;500;700&family=Poor+Story&family=Cute+Font&family=Gaegu&family=Do+Hyeon&family=Jua&family=Kirang+Haerang&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400;0,700;1,400&family=EB+Garamond:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,700;1,400&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Lobster&family=Pacifico&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Caveat:wght@400;700&family=Satisfy&family=Raleway:wght@400;700&family=Oswald:wght@400;700&family=Bebas+Neue&family=Anton&family=Righteous&display=swap" rel="stylesheet">
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 :root {
@@ -99,6 +102,10 @@ input[type=range].oslider::-webkit-slider-thumb{-webkit-appearance:none;width:11
 .num-input{width:40px;height:22px;border:1px solid var(--border);border-radius:3px;text-align:center;font-size:11px;font-family:inherit;background:#fff;outline:none}
 .num-input:focus{border-color:var(--accent)}
 select.sel{border:1px solid var(--border);border-radius:4px;padding:0 4px;font-size:11px;font-family:inherit;background:#fff;cursor:pointer;height:22px;outline:none}
+select.sel optgroup{font-size:10px;color:var(--muted);font-style:normal;font-weight:600;}
+select.sel option{font-size:11px;color:var(--text);background:#fff;}
+[data-theme="dark"] select.sel option{background:#2d2d2d;color:var(--text);}
+[data-theme="dark"] select.sel optgroup{color:var(--muted);}
 select.sel:focus{border-color:var(--accent)}
 .fspinner{display:flex;align-items:center}
 .fspinner input{width:34px;height:22px;border:1px solid var(--border);border-radius:3px 0 0 3px;text-align:center;font-size:11px;font-family:inherit;background:#fff;outline:none;border-right:none}
@@ -334,13 +341,65 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
   <div class="rs"><div class="rs-body" style="flex-direction:column;gap:4px;justify-content:center;padding-bottom:14px">
     <div style="display:flex;align-items:center;gap:4px">
       <span style="font-size:9px;color:var(--muted);min-width:22px">폰트</span>
-      <select class="sel" id="fontFamily" style="width:148px" onchange="updateTextStyle()">
-        <option value="sans-serif">기본 (Sans-serif)</option><option value="serif">Serif</option><option value="monospace">Monospace</option>
-        <option value="'Apple SD Gothic Neo','Malgun Gothic',sans-serif">Apple SD Gothic</option>
-        <option value="'Nanum Gothic',sans-serif">나눔 고딕</option><option value="'Malgun Gothic',sans-serif">맑은 고딕</option>
-        <option value="Georgia,serif">Georgia</option><option value="'Times New Roman',serif">Times New Roman</option>
-        <option value="'Courier New',monospace">Courier New</option><option value="Impact,sans-serif">Impact</option>
-        <option value="'Comic Sans MS',cursive">Comic Sans MS</option><option value="'Trebuchet MS',sans-serif">Trebuchet MS</option>
+      <select class="sel" id="fontFamily" style="width:180px" onchange="updateTextStyle()">
+        <optgroup label="─ 한글 고딕 ─">
+          <option value="'Apple SD Gothic Neo','Malgun Gothic',sans-serif">Apple SD Gothic / 맑은고딕</option>
+          <option value="'Noto Sans KR',sans-serif">Noto Sans KR</option>
+          <option value="'Nanum Gothic','나눔 고딕',sans-serif">나눔고딕</option>
+          <option value="'Black Han Sans',sans-serif">검은고딕</option>
+          <option value="'Do Hyeon',sans-serif">도현체</option>
+          <option value="'Jua',sans-serif">주아체</option>
+          <option value="'Gowun Dodum',sans-serif">고운돋움</option>
+        </optgroup>
+        <optgroup label="─ 한글 명조 ─">
+          <option value="'Nanum Myeongjo','나눔 명조',serif">나눔명조</option>
+          <option value="'Noto Serif KR',serif">Noto Serif KR</option>
+          <option value="'Gowun Batang',serif">고운바탕</option>
+          <option value="'Sunflower',serif">해바라기</option>
+          <option value="'Libre Baskerville',serif">Libre Baskerville</option>
+        </optgroup>
+        <optgroup label="─ 한글 손글씨 ─">
+          <option value="'Nanum Pen Script',cursive">나눔펜</option>
+          <option value="'Poor Story',cursive">배민주아체</option>
+          <option value="'Cute Font',cursive">귀여운폰트</option>
+          <option value="'Gaegu',cursive">개구쟁이</option>
+          <option value="'Kirang Haerang',cursive">기랑해랑</option>
+        </optgroup>
+        <optgroup label="─ 영문 Serif ─">
+          <option value="'Playfair Display',serif">Playfair Display</option>
+          <option value="'Merriweather',serif">Merriweather</option>
+          <option value="'Lora',serif">Lora</option>
+          <option value="'EB Garamond',serif">EB Garamond</option>
+          <option value="'Cormorant Garamond',serif">Cormorant Garamond</option>
+          <option value="Georgia,serif">Georgia</option>
+          <option value="'Times New Roman',serif">Times New Roman</option>
+        </optgroup>
+        <optgroup label="─ 영문 Sans-serif ─">
+          <option value="sans-serif">기본 Sans-serif</option>
+          <option value="'Raleway',sans-serif">Raleway</option>
+          <option value="'Oswald',sans-serif">Oswald</option>
+          <option value="'Trebuchet MS',sans-serif">Trebuchet MS</option>
+          <option value="Arial,sans-serif">Arial</option>
+          <option value="'Helvetica Neue',Helvetica,sans-serif">Helvetica</option>
+        </optgroup>
+        <optgroup label="─ 영문 Display ─">
+          <option value="'Bebas Neue',sans-serif">Bebas Neue</option>
+          <option value="'Anton',sans-serif">Anton</option>
+          <option value="Impact,sans-serif">Impact</option>
+          <option value="'Righteous',sans-serif">Righteous</option>
+        </optgroup>
+        <optgroup label="─ 영문 손글씨 ─">
+          <option value="'Lobster',cursive">Lobster</option>
+          <option value="'Pacifico',cursive">Pacifico</option>
+          <option value="'Dancing Script',cursive">Dancing Script</option>
+          <option value="'Great Vibes',cursive">Great Vibes</option>
+          <option value="'Caveat',cursive">Caveat</option>
+          <option value="'Satisfy',cursive">Satisfy</option>
+        </optgroup>
+        <optgroup label="─ 고정폭 ─">
+          <option value="monospace">기본 Monospace</option>
+          <option value="'Courier New',monospace">Courier New</option>
+        </optgroup>
       </select>
     </div>
     <div style="display:flex;align-items:center;gap:4px">
