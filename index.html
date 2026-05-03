@@ -279,7 +279,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       </div>
       <div class="btn-row" style="align-items:center;gap:4px;padding-top:4px">
         <span style="font-size:9px;color:var(--muted)">채우기</span>
-        <select class="sel" id="shapeFill" style="width:58px"><option value="none">없음</option><option value="fg">전경</option><option value="bg">배경</option></select>
+        <select class="sel" id="shapeFill" style="width:58px" onchange="applyShapeFill()"><option value="none">없음</option><option value="fg">전경</option><option value="bg">배경</option></select>
       </div>
     </div>
   </div><span class="rs-label">도형</span></div>
@@ -375,7 +375,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <div class="main-area">
   <div class="canvas-area" id="canvasArea">
     <div class="drop-overlay" id="dropOverlay">
-      <div class="drop-msg">🖼️ 이미지 파일을 여기에 놓으세요</div>
+      <div class="drop-msg">🖼️ 놓기: 객체로 삽입 &nbsp;|&nbsp; Shift+놓기: 새 파일로 열기</div>
     </div>
     <div class="canvas-wrapper" id="canvasWrapper">
       <canvas id="bgCanvas" width="800" height="600"></canvas>
@@ -775,7 +775,7 @@ function buildPals(){
   p.innerHTML='';
   PAL.forEach(c=>{
     const s=document.createElement('div');s.className='swatch';s.style.background=c;s.title=c;
-    s.addEventListener('click',()=>{fgH=c;updColorUI();applyColorToSel();});
+    s.addEventListener('click',()=>{fgH=c;updColorUI();applyColorToSel();if(actTed)actTed.style.color=fgH;});
     s.addEventListener('contextmenu',e=>{e.preventDefault();bgH=c;updColorUI();});
     p.appendChild(s);
   });
@@ -819,10 +819,18 @@ document.getElementById('colorPickerInput').addEventListener('input',e=>{
   }
 });
 function applyColorToSel(){
+  // 텍스트 에디터가 열려있으면 에디터 색상 즉시 반영
+  if(actTed){ actTed.style.color=fgH; }
   if(!selId)return;
   const o=objs.find(x=>x.id===selId);if(!o)return;
   if(o.type==='stroke')o.color=fgH;
-  else if(o.type==='shape')o.strokeColor=fgH;
+  else if(o.type==='shape'){
+    o.strokeColor=fgH;
+    // fillColor도 shapeFill 설정에 따라 갱신
+    const fm=document.getElementById('shapeFill')?.value;
+    if(fm==='fg') o.fillColor=fgH;
+    else if(fm==='bg') o.fillColor=bgH;
+  }
   else if(o.type==='text')o.color=fgH;
   renderAll();
 }
@@ -861,6 +869,18 @@ function setStroke(w){
   document.querySelectorAll('#stroke-'+w+',#stroke-'+w+'b').forEach(el=>el.classList.add('active'));
   ['customStroke','customStroke2'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=w;});
   if(selId){const o=objs.find(x=>x.id===selId);if(o&&(o.type==='stroke'||o.type==='shape')){o.strokeWidth=w;renderAll();}}
+}
+
+// ── 선택된 도형의 채우기 상태 변경
+function applyShapeFill(){
+  const fm=document.getElementById('shapeFill').value;
+  if(selId){
+    const o=objs.find(x=>x.id===selId);
+    if(o&&o.type==='shape'){
+      o.fillColor=fm==='fg'?fgH:fm==='bg'?bgH:'transparent';
+      renderAll();
+    }
+  }
 }
 
 // ════════════ TEXT EDITOR ════════════
@@ -1160,6 +1180,15 @@ function selObj(id){
       updFontPreview();
     }
     const col=o.color||o.strokeColor;if(col){fgH=col;updColorUI();}
+    // 도형 채우기 상태 동기화
+    if(o.type==='shape'){
+      const sf=document.getElementById('shapeFill');
+      if(sf){
+        if(!o.fillColor||o.fillColor==='transparent') sf.value='none';
+        else if(o.fillColor===o.strokeColor) sf.value='fg';
+        else sf.value='bg';
+      }
+    }
   }
   renderAll();refreshList();
 }
@@ -1463,7 +1492,7 @@ function saveFile(){
   const n=(curFile||'Easy_Paint_Pad').replace(/\.[^.]+$/,'');
   const a=document.createElement('a');a.download=n+'.png';a.href=flatten().toDataURL('image/png');a.click();
 }
-// ── 공통 이미지 파일 로드 함수
+// ── 새 파일로 열기
 function loadImageFile(file){
   if(!file||!file.type.startsWith('image/')) return;
   curFile=file.name;
@@ -1478,6 +1507,32 @@ function loadImageFile(file){
       objs=[];undoSt=[];redoSt=[];
       objs.push({id:mkId(),type:'image',img,x:0,y:0,w:img.width,h:img.height,alpha:1});
       saveH();setZoom(1);
+    };
+    img.src=ev.target.result;
+  };
+  rd.readAsDataURL(file);
+}
+
+// ── 이미지를 현재 캔버스에 객체로 삽입
+function addImageAsObject(file, dropX, dropY){
+  if(!file||!file.type.startsWith('image/')) return;
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      // 캔버스 안에 맞게 크기 조정 (최대 캔버스 50%)
+      let w=img.width, h=img.height;
+      const maxW=CW*0.8, maxH=CH*0.8;
+      if(w>maxW||h>maxH){
+        const scale=Math.min(maxW/w, maxH/h);
+        w=Math.round(w*scale); h=Math.round(h*scale);
+      }
+      // 드롭 위치 기준 중앙 배치, 없으면 캔버스 중앙
+      const x=dropX!=null ? Math.round(dropX-w/2) : Math.round((CW-w)/2);
+      const y=dropY!=null ? Math.round(dropY-h/2) : Math.round((CH-h)/2);
+      objs.push({id:mkId(),type:'image',img,
+        x:Math.max(0,x), y:Math.max(0,y), w, h, alpha:1});
+      saveH(); renderAll(); refreshList();
     };
     img.src=ev.target.result;
   };
@@ -1514,7 +1569,18 @@ canvasArea.addEventListener('drop',e=>{
   dragCounter=0;
   dropOverlay.classList.remove('active');
   const file=e.dataTransfer.files[0];
-  loadImageFile(file);
+  if(!file) return;
+  if(e.shiftKey || objs.length===0){
+    // Shift+드롭 or 빈 캔버스 → 새 파일로 열기
+    loadImageFile(file);
+  } else {
+    // 일반 드롭 → 현재 위치에 객체로 삽입
+    const wrapper=document.getElementById('canvasWrapper');
+    const wr=wrapper.getBoundingClientRect();
+    const dropX=(e.clientX-wr.left)/zoom;
+    const dropY=(e.clientY-wr.top)/zoom;
+    addImageAsObject(file, dropX, dropY);
+  }
 });
 let selFmt='png';
 function openSaveAs(){
@@ -1562,7 +1628,7 @@ document.addEventListener('keydown',e=>{
     if(e.key==='p'){e.preventDefault();printCanvas();}
     if(e.key==='o'){e.preventDefault();document.getElementById('fileInput').click();}
     if(e.key==='c'){e.preventDefault();if(tool==='marque'&&(marqueRect||marqueSnap)){marqueCopy();}else copySelected();}
-    if(e.key==='v'){e.preventDefault();if(pixelClip&&tool==='marque'){marquePixelPaste();}else pasteClipboard();}
+    if(e.key==='v'){if(pixelClip&&tool==='marque'){e.preventDefault();marquePixelPaste();}else if(clip){e.preventDefault();pasteClipboard();}/* 이미지 클립보드는 paste 이벤트가 처리 */}
     if(e.key==='x'){e.preventDefault();if(tool==='marque'&&(marqueRect||marqueSnap)){marqueCut2();}}
     if(e.key==='d'){e.preventDefault();duplicateSelected();}
     if(e.key==='a'){e.preventDefault();selectAll();}                  // Ctrl+A 전체선택
@@ -1663,6 +1729,45 @@ document.addEventListener('click', e=>{
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape') hideCtx();
 }, true);
+
+// ════════════ 클립보드 이미지 붙여넣기 ════════════
+document.addEventListener('paste', e=>{
+  // 텍스트 에디터가 열려 있으면 기본 동작 유지
+  if(actTed) return;
+  const items = e.clipboardData?.items;
+  if(!items) return;
+  for(const item of items){
+    if(item.type.startsWith('image/')){
+      e.preventDefault();
+      const file = item.getAsFile();
+      if(!file) continue;
+      // 이미지 파일을 캔버스 중앙에 객체로 삽입
+      const rd=new FileReader();
+      rd.onload=ev=>{
+        const img=new Image();
+        img.onload=()=>{
+          let w=img.width, h=img.height;
+          const maxW=CW*0.9, maxH=CH*0.9;
+          if(w>maxW||h>maxH){
+            const scale=Math.min(maxW/w,maxH/h);
+            w=Math.round(w*scale);h=Math.round(h*scale);
+          }
+          const x=Math.round((CW-w)/2), y=Math.round((CH-h)/2);
+          objs.push({id:mkId(),type:'image',img,x,y,w,h,alpha:1});
+          saveH();renderAll();refreshList();
+          document.getElementById('statusObj').textContent=
+            `이미지 붙여넣기: ${w}×${h} px`;
+        };
+        img.src=ev.target.result;
+      };
+      rd.readAsDataURL(file);
+      return; // 첫 번째 이미지만 처리
+    }
+  }
+  // 이미지가 없으면 픽셀 클립보드 붙여넣기 시도
+  if(pixelClip&&tool==='marque') marquePixelPaste();
+  else if(clip) pasteClipboard();
+});
 
 // ════════════ PWA 서비스워커 등록 ════════════
 if('serviceWorker' in navigator){
