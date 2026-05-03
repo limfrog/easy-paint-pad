@@ -21,6 +21,10 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["graphics", "productivity", "utilities"],
+  "categories": [
+    "graphics",
+    "productivity",
+    "utilities"
+  ],
   "lang": "ko"
 }
