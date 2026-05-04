@@ -317,6 +317,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
         <button class="sb" id="tool-rect" onclick="setTool('rect')" title="사각형"><svg width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="4" width="12" height="8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
         <button class="sb" id="tool-ellipse" onclick="setTool('ellipse')" title="타원"><svg width="16" height="16" viewBox="0 0 16 16"><ellipse cx="8" cy="8" rx="6" ry="4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
         <button class="sb" id="tool-arrow" onclick="setTool('arrow')" title="화살표"><svg width="16" height="16" viewBox="0 0 16 16"><line x1="2" y1="14" x2="12" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><polyline points="6,4 12,4 12,10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button class="sb" id="tool-staff" onclick="setTool('staff')" title="오선 (악보)"><svg width="16" height="16" viewBox="0 0 16 16"><line x1="1" y1="3"  x2="15" y2="3"  stroke="currentColor" stroke-width="0.9"/><line x1="1" y1="6"  x2="15" y2="6"  stroke="currentColor" stroke-width="0.9"/><line x1="1" y1="9"  x2="15" y2="9"  stroke="currentColor" stroke-width="0.9"/><line x1="1" y1="12" x2="15" y2="12" stroke="currentColor" stroke-width="0.9"/><line x1="1" y1="15" x2="15" y2="15" stroke="currentColor" stroke-width="0.9"/></svg></button>
       </div>
       <div class="btn-row" style="align-items:center;gap:4px;padding-top:4px">
         <span style="font-size:9px;color:var(--muted)">채우기</span>
@@ -632,6 +633,27 @@ function dShape(c,o,hit){
     c.lineTo(x2-len*Math.cos(ang+Math.PI/6),y2-len*Math.sin(ang+Math.PI/6));
     c.closePath();c.fillStyle=hit?id2c(o.id):o.strokeColor;c.fill();
   }
+  else if(o.shape==='staff'){
+    const lx=Math.min(x1,x2), rx=Math.max(x1,x2);
+    const ty=Math.min(y1,y2), by=Math.max(y1,y2);
+    const w=rx-lx, h=by-ty;
+    if(hit){
+      // hit 모드: 전체 영역 채움
+      c.fillRect(lx,ty,w,h);
+    } else {
+      // 오선: 5개 선을 균등 배치, 굵기 = strokeWidth * 0.5
+      const lineW=Math.max(0.5, o.strokeWidth*0.5);
+      c.lineWidth=lineW;
+      c.lineCap='square';
+      for(let i=0;i<5;i++){
+        const ly=ty + (h/(5-1))*i;  // 위~아래에 5선 균등 배치
+        c.beginPath();
+        c.moveTo(lx, ly);
+        c.lineTo(rx, ly);
+        c.stroke();
+      }
+    }
+  }
   c.restore();
 }
 function dText(c,o,hit){
@@ -834,7 +856,7 @@ function setTool(t){
   tool=t;
   document.querySelectorAll('[id^="tool-"]').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('#tool-'+t).forEach(b=>b.classList.add('active'));
-  const N={marque:'영역 선택',select2:'객체 선택',pencil:'연필',brush:'브러시',eraser:'지우개',fill:'채우기',picker:'스포이드',text:'텍스트',line:'선',rect:'사각형',ellipse:'타원',arrow:'화살표'};
+  const N={marque:'영역 선택',select2:'객체 선택',pencil:'연필',brush:'브러시',eraser:'지우개',fill:'채우기',picker:'스포이드',text:'텍스트',line:'선',rect:'사각형',ellipse:'타원',arrow:'화살표',staff:'오선'};
   document.getElementById('statusTool').textContent='도구: '+(N[t]||t);
   HC.style.cursor=t==='select2'?'default':t==='text'?'text':t==='marque'?'crosshair':'crosshair';
 }
@@ -1378,7 +1400,7 @@ function onDown(e){
     const o={id:mkId(),type:'stroke',color:fgH,alpha:fgA,strokeWidth:tool==='brush'?sw*3:sw,eraser:tool==='eraser',points:[{x:xi,y:yi}]};
     actStroke=o;objs.push(o);
   }
-  if(['line','rect','ellipse','arrow'].includes(tool)){
+  if(['line','rect','ellipse','arrow','staff'].includes(tool)){
     const fm=document.getElementById('shapeFill').value;
     const o={id:mkId(),type:'shape',shape:tool,x1:xi,y1:yi,x2:xi,y2:yi,strokeColor:fgH,strokeWidth:sw,alpha:fgA,fillColor:fm==='fg'?fgH:fm==='bg'?bgH:'transparent'};
     actShape=o;objs.push(o);
