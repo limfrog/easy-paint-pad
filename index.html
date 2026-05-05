@@ -150,7 +150,13 @@ select.sel:focus{border-color:var(--accent)}
 .zoom-ctrl{display:flex;align-items:center;gap:4px;margin-left:auto}
 .zbtn{width:18px;height:18px;border:1px solid var(--border);border-radius:3px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px}
 .zbtn:hover{background:var(--hover)}
-.canvas-text-editor{position:absolute;background:transparent;border:1.5px dashed var(--accent);outline:none;resize:none;z-index:50;min-width:80px;min-height:28px;padding:2px 4px;line-height:1.35;white-space:pre;overflow:hidden}
+.canvas-text-editor{position:absolute;background:transparent;border:1.5px dashed var(--accent);
+  outline:none;resize:both;z-index:50;min-width:80px;min-height:28px;
+  padding:2px 4px;line-height:1.35;white-space:pre;overflow:hidden;
+  box-sizing:border-box;}
+/* 리사이즈 핸들을 눈에 잘 보이게 */
+.canvas-text-editor::-webkit-resizer{
+  background:var(--accent);border-radius:0 0 3px 0;opacity:0.7;}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2000;display:flex;align-items:center;justify-content:center}
 .modal-overlay.hidden{display:none}
 .modal{background:#fff;border-radius:12px;box-shadow:0 12px 48px rgba(0,0,0,.28);width:390px;overflow:hidden}
@@ -201,6 +207,19 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
   transition:background .1s,border-color .1s;}
 .theme-btn:hover{background:var(--hover);border-color:var(--border);}
 .theme-btn.active{background:var(--active);border-color:var(--accent);}
+.save-confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:3000;display:flex;align-items:center;justify-content:center;}
+.save-confirm-overlay.hidden{display:none;}
+.save-confirm-box{background:var(--bar);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.28);width:360px;overflow:hidden;font-family:inherit;}
+.save-confirm-head{padding:16px 20px 8px;font-size:15px;font-weight:600;color:var(--text);}
+.save-confirm-msg{padding:4px 20px 16px;font-size:13px;color:var(--muted);line-height:1.5;}
+.save-confirm-foot{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);background:var(--ribbon);justify-content:flex-end;}
+.sc-btn{padding:7px 16px;border-radius:6px;font-size:12px;font-family:inherit;cursor:pointer;font-weight:500;}
+.sc-save{background:var(--accent);color:#fff;border:none;}
+.sc-save:hover{background:#106ebe;}
+.sc-nosave{background:var(--hover);color:var(--text);border:1px solid var(--border);}
+.sc-nosave:hover{background:var(--border);}
+.sc-cancel{background:transparent;color:var(--muted);border:1px solid transparent;}
+.sc-cancel:hover{background:var(--hover);}
 .drop-overlay{position:absolute;inset:0;z-index:200;background:rgba(0,120,212,0.13);
   border:3px dashed #0078d4;border-radius:6px;display:none;
   align-items:center;justify-content:center;pointer-events:none;}
@@ -219,6 +238,19 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 </style>
 </head>
 <body>
+
+<!-- 저장 확인 다이얼로그 -->
+<div class="save-confirm-overlay hidden" id="saveConfirmOverlay">
+  <div class="save-confirm-box">
+    <div class="save-confirm-head">💾 저장하시겠습니까?</div>
+    <div class="save-confirm-msg" id="saveConfirmMsg">저장하지 않은 변경사항이 있습니다.</div>
+    <div class="save-confirm-foot">
+      <button class="sc-btn sc-cancel" onclick="hideSaveConfirm()">취소</button>
+      <button class="sc-btn sc-nosave" id="scNoSaveBtn">저장 안 함</button>
+      <button class="sc-btn sc-save" onclick="scSave()">저장</button>
+    </div>
+  </div>
+</div>
 
 <!-- Context Menu -->
 <div class="ctx-menu hidden" id="ctxMenu">
@@ -557,6 +589,11 @@ function restoreObjs(snap){
 function saveH(){
   undoSt.push(snapObjs()); if(undoSt.length>60)undoSt.shift();
   redoSt=[]; renderAll(); refreshList();
+  if(!isDirty){
+    isDirty=true;
+    const t=document.getElementById('titleText');
+    if(t&&!t.textContent.startsWith('●')) t.textContent='● '+t.textContent;
+  }
 }
 function undo(){
   if(!undoSt.length)return;
@@ -714,7 +751,13 @@ function hitTest(x,y){
 function getBounds(o){
   if(o.type==='stroke'){const xs=o.points.map(p=>p.x),ys=o.points.map(p=>p.y),pd=Math.max(o.strokeWidth/2,6);const minX=Math.min(...xs),minY=Math.min(...ys),maxX=Math.max(...xs),maxY=Math.max(...ys);return{x:minX-pd,y:minY-pd,w:Math.max(maxX-minX,1)+pd*2,h:Math.max(maxY-minY,1)+pd*2};}
   if(o.type==='shape'){const x=Math.min(o.x1,o.x2),y=Math.min(o.y1,o.y2),w=Math.abs(o.x2-o.x1),h=Math.abs(o.y2-o.y1),pd=Math.max(o.strokeWidth/2,4);return{x:x-pd,y:y-pd,w:Math.max(w,1)+pd*2,h:Math.max(h,1)+pd*2};}
-  if(o.type==='text'){ctx.font=`${o.fontSize}px ${o.fontFamily}`;const ls=(o.text||'').split('\n');const mw=Math.max(...ls.map(l=>ctx.measureText(l).width),20);return{x:o.x,y:o.y,w:mw,h:ls.length*o.fontSize*1.3};}
+  if(o.type==='text'){
+    if(o._edW&&o._edH) return{x:o.x,y:o.y,w:o._edW,h:o._edH};
+    ctx.font=`${o.fontSize}px ${o.fontFamily}`;
+    const ls=(o.text||'').split('\n');
+    const mw=Math.max(...ls.map(l=>ctx.measureText(l).width),20);
+    return{x:o.x,y:o.y,w:mw,h:ls.length*o.fontSize*1.3};
+  }
   if(o.type==='image')return{x:o.x,y:o.y,w:o.w,h:o.h};
   return{x:0,y:0,w:0,h:0};
 }
@@ -780,6 +823,7 @@ function resizeO(o,orig,nb){
 let tool='select2',fgH='#000000',fgA=1,bgH='#ffffff',bgA=1,sw=1;
 let fSz=18,fFam='sans-serif',fBold=false,fItal=false,fUnder=false;
 let drawing=false,dSX=0,dSY=0,actStroke=null,actShape=null,actTed=null;
+let isDirty=false; // 미저장 변경사항 추적
 let dragging=false,dragLX=0,dragLY=0;
 let resC=false,resDir='',resSX=0,resSY=0,resOW=0,resOH=0;
 
@@ -1020,11 +1064,16 @@ function openTed(x,y,exist=null){
   ed.className='canvas-text-editor';
   ed.style.left=x+'px';ed.style.top=y+'px';
   ed.spellcheck=false;ed._x=x;ed._y=y;ed._oid=exist?.id??null;
-  if(exist)ed.value=exist.text||'';
+  if(exist){
+    ed.value=exist.text||'';
+    // 저장된 크기 복원
+    if(exist._edW) ed.style.width =exist._edW+'px';
+    if(exist._edH) ed.style.height=exist._edH+'px';
+  }
   applyEdSt(ed);
   TO.style.pointerEvents='auto';TO.appendChild(ed);actTed=ed;
   setTimeout(()=>ed.focus(),0);
-  ed.addEventListener('input',()=>{ed.style.height='auto';ed.style.height=Math.max(28,ed.scrollHeight)+'px';});
+  // 리사이즈 핸들 드래그 중 HC 이벤트 차단 방지 — resize는 CSS가 처리
   ed.addEventListener('keydown',e=>{if(e.key==='Escape')commitT();});
 }
 function commitT(){
@@ -1032,11 +1081,15 @@ function commitT(){
   const ed=actTed;actTed=null;TO.style.pointerEvents='none';
   const val=ed.value;
   if(val.trim()){
+    // 에디터 실제 크기 읽기 (리사이즈 반영)
+    const edW=ed.offsetWidth, edH=ed.offsetHeight;
     if(ed._oid!==null){
       const o=objs.find(x=>x.id===ed._oid);
-      if(o){o.text=val;saveH();selId=o.id;}
+      if(o){o.text=val;o._edW=edW;o._edH=edH;saveH();selId=o.id;}
     }else{
-      const newObj={id:mkId(),type:'text',x:ed._x,y:ed._y,text:val,fontFamily:fFam,fontSize:fSz,bold:fBold,italic:fItal,underline:fUnder,color:fgH,alpha:fgA};
+      const newObj={id:mkId(),type:'text',x:ed._x,y:ed._y,text:val,
+        fontFamily:fFam,fontSize:fSz,bold:fBold,italic:fItal,underline:fUnder,
+        color:fgH,alpha:fgA,_edW:edW,_edH:edH};
       objs.push(newObj);saveH();selId=newObj.id;
     }
   }
@@ -1668,8 +1721,14 @@ function flatten(){
 }
 let curFile=null;
 function newFile(){
-  if(!confirm('새 파일을 만들면 현재 작업이 사라집니다. 계속하시겠습니까?'))return;
-  objs=[];selId=null;undoSt=[];redoSt=[];curFile=null;
+  if(isDirty){
+    showSaveConfirm('새 파일을 만들면 현재 작업이 사라집니다.', ()=>doNewFile());
+    return;
+  }
+  doNewFile();
+}
+function doNewFile(){
+  objs=[];selId=null;undoSt=[];redoSt=[];curFile=null;isDirty=false;
   setCS(800,600);document.getElementById('titleText').textContent='제목 없음 - Easy Paint Pad';
   document.getElementById('canvasW').value=800;document.getElementById('canvasH').value=600;
   clearSel();refreshList();
@@ -1700,9 +1759,15 @@ function printCanvas(){
 </body></html>`);
   w.document.close();
 }
+function markSaved(){
+  isDirty=false;
+  const t=document.getElementById('titleText');
+  if(t) t.textContent=t.textContent.replace(/^● /,'');
+}
 function saveFile(){
   const n=(curFile||'Easy_Paint_Pad').replace(/\.[^.]+$/,'');
   const a=document.createElement('a');a.download=n+'.png';a.href=flatten().toDataURL('image/png');a.click();
+  markSaved();
 }
 // ── 새 파일로 열기
 function loadImageFile(file){
@@ -1716,9 +1781,10 @@ function loadImageFile(file){
       setCS(img.width,img.height);
       document.getElementById('canvasW').value=img.width;
       document.getElementById('canvasH').value=img.height;
-      objs=[];undoSt=[];redoSt=[];
+      objs=[];undoSt=[];redoSt=[];isDirty=false;
       objs.push({id:mkId(),type:'image',img,x:0,y:0,w:img.width,h:img.height,alpha:1});
       saveH();setZoom(1);
+      isDirty=false; // saveH가 dirty로 만들었으므로 다시 리셋
     };
     img.src=ev.target.result;
   };
@@ -1819,6 +1885,7 @@ function executeSaveAs(){
   const url=selFmt==='png'?flatten().toDataURL('image/png'):flatten().toDataURL(mime,q);
   const a=document.createElement('a');a.download=`${n}.${ext}`;a.href=url;a.click();
   curFile=`${n}.${ext}`;document.getElementById('titleText').textContent=curFile+' - Easy Paint Pad';
+  markSaved();
   closeSaveAs();
 }
 document.getElementById('saveAsModal').addEventListener('click',e=>{if(e.target===document.getElementById('saveAsModal'))closeSaveAs();});
@@ -1981,6 +2048,34 @@ document.addEventListener('paste', e=>{
   // 이미지가 없으면 픽셀 클립보드 붙여넣기 시도
   if(pixelClip&&tool==='marque') marquePixelPaste();
   else if(clip) pasteClipboard();
+});
+
+// ════════════ 저장 확인 다이얼로그 ════════════
+let _scCallback=null; // 확인 후 실행할 콜백
+
+function showSaveConfirm(msg, callback){
+  _scCallback=callback;
+  document.getElementById('saveConfirmMsg').textContent=
+    (msg||'')+(msg?' ':'')+' 저장하지 않은 변경사항이 있습니다.';
+  document.getElementById('scNoSaveBtn').onclick=()=>{hideSaveConfirm();_scCallback&&_scCallback();};
+  document.getElementById('saveConfirmOverlay').classList.remove('hidden');
+}
+function hideSaveConfirm(){
+  document.getElementById('saveConfirmOverlay').classList.add('hidden');
+  _scCallback=null;
+}
+function scSave(){
+  hideSaveConfirm();
+  saveFile(); // 저장 후 콜백 실행
+  setTimeout(()=>{_scCallback&&_scCallback();_scCallback=null;},100);
+}
+
+// ════════════ 종료 시 저장 확인 ════════════
+window.addEventListener('beforeunload', e=>{
+  if(!isDirty) return;
+  e.preventDefault();
+  e.returnValue='저장하지 않은 변경사항이 있습니다. 정말 닫으시겠습니까?';
+  return e.returnValue;
 });
 
 // ════════════ PWA 서비스워커 등록 ════════════
