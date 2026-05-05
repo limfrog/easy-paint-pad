@@ -519,12 +519,12 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <div class="vdiv" style="margin:0 4px"></div>
       <div class="custom-slots" id="cs1Slots">
         <div style="display:flex;gap:3px">
-          <div class="cslot" onclick="clickCSlot(0,'cs1',event)" oncontextmenu="clickCSlot(0,'cs1',event);return false;" title="커스텀 1 — 클릭 편집"><div class="cslot-inner" id="cs1SI0"></div><div class="cslot-plus" id="cs1SP0">+</div></div>
-          <div class="cslot" onclick="clickCSlot(1,'cs1',event)" oncontextmenu="clickCSlot(1,'cs1',event);return false;" title="커스텀 2 — 클릭 편집"><div class="cslot-inner" id="cs1SI1"></div><div class="cslot-plus" id="cs1SP1">+</div></div>
+          <div class="cslot" onclick="clickCSlot(0,'cs1',event)" ondblclick="clickCSlot(0,'cs1',event)" oncontextmenu="clickCSlot(0,'cs1',event);return false;" title="클릭: 전경색 적용 · 더블클릭: 색상 편집 · 우클릭: 배경색 적용"><div class="cslot-inner" id="cs1SI0"></div><div class="cslot-plus" id="cs1SP0">+</div></div>
+          <div class="cslot" onclick="clickCSlot(1,'cs1',event)" ondblclick="clickCSlot(1,'cs1',event)" oncontextmenu="clickCSlot(1,'cs1',event);return false;" title="클릭: 전경색 적용 · 더블클릭: 색상 편집 · 우클릭: 배경색 적용"><div class="cslot-inner" id="cs1SI1"></div><div class="cslot-plus" id="cs1SP1">+</div></div>
         </div>
         <div style="display:flex;gap:3px">
-          <div class="cslot" onclick="clickCSlot(2,'cs1',event)" oncontextmenu="clickCSlot(2,'cs1',event);return false;" title="커스텀 3 — 클릭 편집"><div class="cslot-inner" id="cs1SI2"></div><div class="cslot-plus" id="cs1SP2">+</div></div>
-          <div class="cslot" onclick="clickCSlot(3,'cs1',event)" oncontextmenu="clickCSlot(3,'cs1',event);return false;" title="커스텀 4 — 클릭 편집"><div class="cslot-inner" id="cs1SI3"></div><div class="cslot-plus" id="cs1SP3">+</div></div>
+          <div class="cslot" onclick="clickCSlot(2,'cs1',event)" ondblclick="clickCSlot(2,'cs1',event)" oncontextmenu="clickCSlot(2,'cs1',event);return false;" title="클릭: 전경색 적용 · 더블클릭: 색상 편집 · 우클릭: 배경색 적용"><div class="cslot-inner" id="cs1SI2"></div><div class="cslot-plus" id="cs1SP2">+</div></div>
+          <div class="cslot" onclick="clickCSlot(3,'cs1',event)" ondblclick="clickCSlot(3,'cs1',event)" oncontextmenu="clickCSlot(3,'cs1',event);return false;" title="클릭: 전경색 적용 · 더블클릭: 색상 편집 · 우클릭: 배경색 적용"><div class="cslot-inner" id="cs1SI3"></div><div class="cslot-plus" id="cs1SP3">+</div></div>
         </div>
       </div>
       <span class="cs-label">팔레트</span>
@@ -1130,10 +1130,25 @@ function chooseColor(t){
 }
 function clickCSlot(idx,_p,ev){
   // 우클릭: 배경색 적용
-  if(ev&&ev.button===2){bgH=customSlots[idx]||'#ffffff';updColorUI();return;}
-  cpTgt='cslot';cpCSlotIdx=idx;
-  const i=document.getElementById('colorPickerInput');
-  i.value=customSlots[idx]||'#ffffff';i.click();
+  if(ev&&ev.button===2){
+    if(customSlots[idx]){bgH=customSlots[idx];updColorUI();}
+    return;
+  }
+  // 더블클릭: 컬러피커로 편집
+  if(ev&&ev.type==='dblclick'){
+    cpTgt='cslot';cpCSlotIdx=idx;
+    const i=document.getElementById('colorPickerInput');
+    i.value=customSlots[idx]||'#ffffff';i.click();
+    return;
+  }
+  // 좌클릭: 색상 있으면 전경색 적용, 없으면 컬러피커로 색상 지정
+  if(customSlots[idx]){
+    fgH=customSlots[idx];updColorUI();applyColorToSel();
+  } else {
+    cpTgt='cslot';cpCSlotIdx=idx;
+    const i=document.getElementById('colorPickerInput');
+    i.value='#ffffff';i.click();
+  }
 }
 document.getElementById('colorPickerInput').addEventListener('input',e=>{
   const c=e.target.value;
