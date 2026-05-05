@@ -663,9 +663,12 @@ function dText(c,o,hit){
   c.font=`${st.join(' ')} ${o.fontSize}px ${o.fontFamily}`.trim();
   c.globalAlpha=hit?1:(o.alpha??1);
   const lines=o.text.split('\n');
+  // 텍스트는 o.y를 top으로, 첫 줄 baseline = o.y + fontSize
   if(hit){
     const mw=Math.max(...lines.map(l=>c.measureText(l).width),10);
-    c.fillStyle=id2c(o.id);c.fillRect(o.x,o.y,mw,lines.length*o.fontSize*1.35);
+    // hit 영역: 글자가 실제 그려지는 top~bottom
+    c.fillStyle=id2c(o.id);
+    c.fillRect(o.x, o.y, mw, lines.length*o.fontSize*1.3);
   }else{
     c.fillStyle=o.color;
     lines.forEach((l,i)=>c.fillText(l,o.x,o.y+(i+1)*o.fontSize));
@@ -711,7 +714,7 @@ function hitTest(x,y){
 function getBounds(o){
   if(o.type==='stroke'){const xs=o.points.map(p=>p.x),ys=o.points.map(p=>p.y),pd=Math.max(o.strokeWidth/2,6);const minX=Math.min(...xs),minY=Math.min(...ys),maxX=Math.max(...xs),maxY=Math.max(...ys);return{x:minX-pd,y:minY-pd,w:Math.max(maxX-minX,1)+pd*2,h:Math.max(maxY-minY,1)+pd*2};}
   if(o.type==='shape'){const x=Math.min(o.x1,o.x2),y=Math.min(o.y1,o.y2),w=Math.abs(o.x2-o.x1),h=Math.abs(o.y2-o.y1),pd=Math.max(o.strokeWidth/2,4);return{x:x-pd,y:y-pd,w:Math.max(w,1)+pd*2,h:Math.max(h,1)+pd*2};}
-  if(o.type==='text'){ctx.font=`${o.fontSize}px ${o.fontFamily}`;const ls=o.text.split('\n');const mw=Math.max(...ls.map(l=>ctx.measureText(l).width),20);return{x:o.x,y:o.y,w:mw,h:ls.length*o.fontSize*1.35};}
+  if(o.type==='text'){ctx.font=`${o.fontSize}px ${o.fontFamily}`;const ls=(o.text||'').split('\n');const mw=Math.max(...ls.map(l=>ctx.measureText(l).width),20);return{x:o.x,y:o.y,w:mw,h:ls.length*o.fontSize*1.3};}
   if(o.type==='image')return{x:o.x,y:o.y,w:o.w,h:o.h};
   return{x:0,y:0,w:0,h:0};
 }
@@ -959,7 +962,7 @@ function applyColorToSel(){
     else if(fm==='bg') o.fillColor=bgH;
   }
   else if(o.type==='text')o.color=fgH;
-  renderAll();
+  renderAll(); saveH();
 }
 
 // ════════════ TEXT STYLE ════════════
@@ -968,7 +971,7 @@ function updateTextStyle(){
   fSz=parseInt(document.getElementById('fontSizeInput').value)||18;
   updFontPreview();
   if(actTed)applyEdSt(actTed);
-  if(selId){const o=objs.find(x=>x.id===selId);if(o&&o.type==='text'){o.fontFamily=fFam;o.fontSize=fSz;o.bold=fBold;o.italic=fItal;o.underline=fUnder;renderAll();}}
+  if(selId){const o=objs.find(x=>x.id===selId);if(o&&o.type==='text'){o.fontFamily=fFam;o.fontSize=fSz;o.bold=fBold;o.italic=fItal;o.underline=fUnder;renderAll();saveH();}}
 }
 function applyEdSt(el){
   el.style.fontFamily=fFam;el.style.fontSize=fSz+'px';
@@ -995,7 +998,7 @@ function setStroke(w){
   document.querySelectorAll('.stroke-opt').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('#stroke-'+w+',#stroke-'+w+'b').forEach(el=>el.classList.add('active'));
   ['customStroke','customStroke2'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=w;});
-  if(selId){const o=objs.find(x=>x.id===selId);if(o&&(o.type==='stroke'||o.type==='shape')){o.strokeWidth=w;renderAll();}}
+  if(selId){const o=objs.find(x=>x.id===selId);if(o&&(o.type==='stroke'||o.type==='shape')){o.strokeWidth=w;renderAll();saveH();}}
 }
 
 // ── 선택된 도형의 채우기 상태 변경
@@ -1005,7 +1008,7 @@ function applyShapeFill(){
     const o=objs.find(x=>x.id===selId);
     if(o&&o.type==='shape'){
       o.fillColor=fm==='fg'?fgH:fm==='bg'?bgH:'transparent';
-      renderAll();
+      renderAll(); saveH();
     }
   }
 }
@@ -1040,6 +1043,74 @@ function commitT(){
   TO.removeChild(ed);
   if(selId){tool='select2';document.querySelectorAll('[id^="tool-"]').forEach(b=>b.classList.remove('active'));document.querySelectorAll('#tool-select2').forEach(b=>b.classList.add('active'));HC.style.cursor='default';document.getElementById('statusTool').textContent='도구: 선택/이동';}
   renderAll();refreshList();
+}
+
+// ════════════ ERASER (실제 픽셀 삭제) ════════════
+function applyEraserStroke(eraserObj){
+  // 1) 지우개 stroke의 경계 박스
+  const pts=eraserObj.points;
+  const r=eraserObj.strokeWidth/2;
+  const ex=Math.max(0,Math.floor(Math.min(...pts.map(p=>p.x))-r));
+  const ey=Math.max(0,Math.floor(Math.min(...pts.map(p=>p.y))-r));
+  const ex2=Math.min(CW,Math.ceil(Math.max(...pts.map(p=>p.x))+r));
+  const ey2=Math.min(CH,Math.ceil(Math.max(...pts.map(p=>p.y))+r));
+  const ew=ex2-ex, eh=ey2-ey;
+  if(ew<=0||eh<=0){
+    // 지우개 stroke 객체 제거
+    const idx=objs.findIndex(o=>o.id===eraserObj.id);
+    if(idx>-1)objs.splice(idx,1);
+    renderAll();return;
+  }
+
+  // 2) 지우개 획 마스크 생성 (지울 영역 = 흰색)
+  const maskC=document.createElement('canvas');maskC.width=CW;maskC.height=CH;
+  const mx=maskC.getContext('2d');
+  mx.fillStyle='rgba(0,0,0,0)';mx.fillRect(0,0,CW,CH);
+  // 지우개 획을 마스크에 그리기 (흰색)
+  mx.lineCap='round';mx.lineJoin='round';mx.lineWidth=eraserObj.strokeWidth;
+  mx.strokeStyle='rgba(255,255,255,1)';mx.fillStyle='rgba(255,255,255,1)';
+  mx.beginPath();mx.moveTo(pts[0].x,pts[0].y);
+  pts.forEach(p=>mx.lineTo(p.x,p.y));
+  if(pts.length===1){mx.arc(pts[0].x,pts[0].y,eraserObj.strokeWidth/2,0,Math.PI*2);mx.fill();}
+  else mx.stroke();
+  const maskData=mx.getImageData(0,0,CW,CH).data;
+
+  // 3) 지우개 bbox와 겹치는 객체들을 찾아 처리
+  // eraser stroke 자체는 먼저 objs에서 제거
+  const eraserIdx=objs.findIndex(o=>o.id===eraserObj.id);
+  if(eraserIdx>-1)objs.splice(eraserIdx,1);
+
+  const overlapping=objs.filter(o=>{
+    const b=getBounds(o);
+    return b.x<ex2&&b.x+b.w>ex&&b.y<ey2&&b.y+b.h>ey;
+  });
+  if(!overlapping.length){saveH();renderAll();return;}
+
+  const untouched=objs.filter(o=>!overlapping.includes(o));
+
+  // 4) 겹치는 객체들을 임시 캔버스에 렌더 → 마스크 픽셀 지우기
+  const tmpC=document.createElement('canvas');tmpC.width=CW;tmpC.height=CH;
+  const tc=tmpC.getContext('2d');
+  overlapping.forEach(o=>drawO(tc,o,false));
+  const imgData=tc.getImageData(0,0,CW,CH);
+  const d=imgData.data;
+  for(let i=0;i<d.length;i+=4){
+    const mi=i/4*4; // same index
+    if(maskData[mi+3]>10){ // 마스크가 있는 픽셀 → 투명하게
+      d[i+3]=Math.max(0,d[i+3]-maskData[mi+3]);
+    }
+  }
+  tc.putImageData(imgData,0,0);
+
+  // 5) 결과를 image 객체로 교체
+  const resultURL=tmpC.toDataURL('image/png');
+  const img=new Image();
+  img.onload=()=>{
+    const newImgObj={id:mkId(),type:'image',img,x:0,y:0,w:CW,h:CH,alpha:1};
+    objs=[...untouched,newImgObj];
+    saveH();renderAll();refreshList();
+  };
+  img.src=resultURL;
 }
 
 // ════════════ FLOOD FILL ════════════
@@ -1137,7 +1208,7 @@ function marqueCut(){
     marqueRect={x:sx,y:sy,w:sw,h:sh};
     saveH();
     drawMarque();renderAll();
-    document.getElementById('statusObj').textContent=`영역 선택: ${sw}×${sh} px — 이동 후 클릭으로 확정 · Delete 삭제 · Esc 취소`;
+    document.getElementById('statusObj').textContent=`영역 선택: ${sw}×${sh} px — 드래그로 이동 · 클릭으로 확정 · Delete 삭제 · Esc 취소`;
   };
 }
 
@@ -1364,9 +1435,12 @@ HC.addEventListener('dblclick',onDbl);
 function onDown(e){
   const{x,y}=getPos(e);const xi=Math.round(x),yi=Math.round(y);
 
+  // actTed가 열려있으면 먼저 확정 (포인터이벤트 충돌 방지)
+  if(actTed) commitT();
+
   // ── 영역 선택 툴 (픽셀 방식)
   if(tool==='marque'){
-    // snap이 있고 선택 영역 내부 클릭 → 이동 시작
+    // snap이 있으면 (이미 잘린 상태)
     if(marqueSnap){
       if(xi>=marqueSnapX&&xi<=marqueSnapX+marqueSnapW&&
          yi>=marqueSnapY&&yi<=marqueSnapY+marqueSnapH){
@@ -1374,8 +1448,23 @@ function onDown(e){
         HC.style.cursor='move';
         return;
       } else {
-        // 영역 밖 클릭 → 현재 위치에 확정(붙여넣기)
-        marqueCommit();
+        marqueCommit(); // 영역 밖 클릭 → 확정
+      }
+    }
+    // 선택만 된 상태 (아직 snap 없음) — 선택 영역 내부 클릭 → 이제 자르기 후 이동
+    if(!marqueSnap&&marqueRect&&!marqueDrawing){
+      const rx2=Math.min(marqueRect.x,marqueRect.x+marqueRect.w);
+      const ry2=Math.min(marqueRect.y,marqueRect.y+marqueRect.h);
+      const rw2=Math.abs(marqueRect.w),rh2=Math.abs(marqueRect.h);
+      if(xi>=rx2&&xi<=rx2+rw2&&yi>=ry2&&yi<=ry2+rh2){
+        // 선택 영역 내부 클릭 → 이제 픽셀 잘라내기 후 이동 준비
+        marqueCut();
+        // marqueCut은 비동기(holeImg.onload) → 이동은 marqueCommitted 후 다음 드래그에서
+        return;
+      } else {
+        // 선택 영역 밖 클릭 → 선택 해제
+        marqueRect=null;marqueSnap=null;drawMarque();
+        document.getElementById('statusObj').textContent='';
       }
     }
     // 새 영역 드래그 시작
@@ -1444,24 +1533,16 @@ function onMove(e){
 }
 
 function onUp(){
-  if(svgR||dragging)return; // handled by document mouseup
-  if(marqueDrawing){
-    marqueDrawing=false;
-    const rw=Math.abs(marqueRect.w),rh=Math.abs(marqueRect.h);
-    if(rw<4||rh<4){
-      marqueRect=null;marqueSnap=null;drawMarque();
-      document.getElementById('statusObj').textContent='';
-      return;
-    }
-    // 픽셀 잘라내기
-    marqueCut();
+  // drawing(획/도형) 완료만 처리 — drag/svgR/marque는 document.mouseup 담당
+  if(!drawing) return;
+  drawing=false;
+  if(actStroke&&actStroke.eraser){
+    applyEraserStroke(actStroke);
+    actStroke=null; actShape=null;
     return;
   }
-  if(marqueDragging){
-    marqueDragging=false;HC.style.cursor='move';
-    return;
-  }
-  if(!drawing)return;drawing=false;actStroke=null;actShape=null;saveH();
+  actStroke=null; actShape=null;
+  saveH();
 }
 
 function onDbl(e){
@@ -1473,15 +1554,26 @@ document.addEventListener('mousemove',e=>{
   if(svgR){const r=HC.getBoundingClientRect();doSvgResize((e.clientX-r.left)/zoom,(e.clientY-r.top)/zoom);}
 });
 document.addEventListener('mouseup',()=>{
-  if(svgR){svgR=false;saveH();return;}
-  if(dragging){dragging=false;HC.style.cursor='default';saveH();return;}
-  if(marqueDragging){marqueDragging=false;HC.style.cursor='move';}
+  if(svgR){ svgR=false; saveH(); return; }
+  if(dragging){ dragging=false; HC.style.cursor='default'; saveH(); return; }
+  if(marqueDragging){ marqueDragging=false; HC.style.cursor='crosshair'; saveH(); return; }
   if(marqueDrawing){
     marqueDrawing=false;
-    const rw=Math.abs(marqueRect?.w||0),rh=Math.abs(marqueRect?.h||0);
-    if(rw<4||rh<4){marqueRect=null;marqueSnap=null;drawMarque();document.getElementById('statusObj').textContent='';return;}
-    marqueCut();
+    const rw=Math.abs(marqueRect?.w||0), rh=Math.abs(marqueRect?.h||0);
+    if(rw<4||rh<4){
+      marqueRect=null; marqueSnap=null; drawMarque();
+      document.getElementById('statusObj').textContent=''; return;
+    }
+    drawMarque();
+    document.getElementById('statusObj').textContent=
+      `영역 선택: ${Math.round(rw)}×${Math.round(rh)} px — 드래그로 이동 · Delete 삭제 · Ctrl+C 복사 · Ctrl+X 잘라내기`;
+    return;
   }
+  // 캔버스 핸들 리사이즈 완료
+  if(resC){ resC=false; resOrigObjs=null;
+    document.getElementById('canvasW').value=CW;
+    document.getElementById('canvasH').value=CH;
+    saveH(); }
 });
 
 // ════════════ CANVAS RESIZE HANDLES ════════════
@@ -1537,14 +1629,7 @@ document.addEventListener('mousemove',e=>{
   renderAll();
 });
 
-document.addEventListener('mouseup',()=>{
-  if(resC){
-    resC=false;resOrigObjs=null;
-    document.getElementById('canvasW').value=CW;
-    document.getElementById('canvasH').value=CH;
-    saveH();
-  }
-});
+// 캔버스 핸들 mouseup은 document.addEventListener('mouseup') 에서 처리됨
 
 function setCS(w,h){
   CW=w;CH=h;[bgC,MC,HC].forEach(c=>{c.width=w;c.height=h;});
@@ -1786,6 +1871,8 @@ document.addEventListener('keydown',e=>{
       e.preventDefault();
       const o=objs.find(x=>x.id===selId);
       if(o){const d=e.shiftKey?10:1,dx=e.key==='ArrowLeft'?-d:e.key==='ArrowRight'?d:0,dy=e.key==='ArrowUp'?-d:e.key==='ArrowDown'?d:0;moveO(o,dx,dy);renderAll();}
+      clearTimeout(window._arrowSaveT);
+      window._arrowSaveT=setTimeout(saveH,400);
     }
     // 영역 선택 화살표 이동 (픽셀 snap)
     if(marqueSnap&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
