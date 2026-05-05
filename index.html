@@ -125,15 +125,19 @@ select.sel:focus{border-color:var(--accent)}
 #hitCanvas{position:absolute;top:0;left:0;z-index:2;cursor:crosshair;opacity:0}
 #svgOverlay{position:absolute;top:0;left:0;z-index:15;overflow:visible}
 #textOverlay{position:absolute;top:0;left:0;z-index:30;pointer-events:none}
-.handle{position:absolute;width:8px;height:8px;background:#fff;border:1.5px solid var(--accent);border-radius:1px;z-index:40}
-.handle.e{right:-5px;top:50%;transform:translateY(-50%);cursor:e-resize}
-.handle.s{bottom:-5px;left:50%;transform:translateX(-50%);cursor:s-resize}
-.handle.se{right:-5px;bottom:-5px;cursor:se-resize}
-.handle.n{top:-5px;left:50%;transform:translateX(-50%);cursor:n-resize}
-.handle.w{left:-5px;top:50%;transform:translateY(-50%);cursor:w-resize}
-.handle.ne{right:-5px;top:-5px;cursor:ne-resize}
-.handle.nw{left:-5px;top:-5px;cursor:nw-resize}
-.handle.sw{left:-5px;bottom:-5px;cursor:sw-resize}
+/* 캔버스 크기조절 핸들: 회색 계열 원형으로 객체 선택 핸들과 구분 */
+.handle{position:absolute;width:14px;height:14px;
+  background:#555;border:2px solid #fff;border-radius:50%;
+  z-index:40;box-shadow:0 1px 4px rgba(0,0,0,.35);}
+[data-theme="dark"] .handle{background:#aaa;border-color:#333;}
+.handle.e{right:-8px;top:50%;transform:translateY(-50%);cursor:e-resize}
+.handle.s{bottom:-8px;left:50%;transform:translateX(-50%);cursor:s-resize}
+.handle.se{right:-8px;bottom:-8px;cursor:se-resize}
+.handle.n{top:-8px;left:50%;transform:translateX(-50%);cursor:n-resize}
+.handle.w{left:-8px;top:50%;transform:translateY(-50%);cursor:w-resize}
+.handle.ne{right:-8px;top:-8px;cursor:ne-resize}
+.handle.nw{left:-8px;top:-8px;cursor:nw-resize}
+.handle.sw{left:-8px;bottom:-8px;cursor:sw-resize}
 .obj-panel{width:165px;background:var(--bar);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden}
 .obj-panel-head{padding:0 8px;height:28px;font-size:11px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border);background:var(--ribbon);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .layer-btns{display:flex;gap:2px}
@@ -931,7 +935,7 @@ function drawSel(){
   [[x,y],[x+w/2,y],[x+w,y],[x,y+h/2],[x+w,y+h/2],[x,y+h],[x+w/2,y+h],[x+w,y+h]].forEach(([hx2,hy],i)=>{
     const hr=document.createElementNS(ns,'rect');
     hr.setAttribute('x',hx2-6);hr.setAttribute('y',hy-6);hr.setAttribute('width',12);hr.setAttribute('height',12);
-    hr.setAttribute('fill','white');hr.setAttribute('stroke','#0078d4');hr.setAttribute('stroke-width','1.5');hr.setAttribute('rx','2');
+    hr.setAttribute('fill','#0078d4');hr.setAttribute('stroke','#fff');hr.setAttribute('stroke-width','1.5');hr.setAttribute('rx','2');
     hr.style.pointerEvents='all';hr.style.cursor=(['nw-resize','n-resize','ne-resize','w-resize','e-resize','sw-resize','s-resize','se-resize'])[i]||'se-resize';
     hr.dataset.hi=i;SV.appendChild(hr);
   });
@@ -1942,19 +1946,18 @@ document.addEventListener('mouseup',()=>{
 });
 
 // ════════════ CANVAS RESIZE HANDLES ════════════
-// n/w 방향은 캔버스 시작점이 이동 → 기존 내용도 오프셋만큼 이동시켜야 함
-let resOrigObjs=null; // mousedown 시점의 객체 스냅샷 (n/w용)
+let resOrigObjs=null;
 
 document.querySelectorAll('.handle').forEach(h=>{
   h.addEventListener('mousedown',e=>{
     e.preventDefault();e.stopPropagation();
     resC=true;resDir=h.dataset.dir;
     resSX=e.clientX;resSY=e.clientY;resOW=CW;resOH=CH;
-    // n/w 포함 방향은 객체 좌표가 이동하므로 원본 스냅샷 저장
+    // n/w 방향: 객체를 오프셋만큼 이동시켜야 하므로 원본 스냅샷 저장
     if(resDir.includes('n')||resDir.includes('w')){
       resOrigObjs=objs.map(o=>{
         const c=Object.assign({},o);
-        if(c.type==='stroke')c.points=o.points.map(p=>({...p}));
+        if(c.type==='stroke') c.points=o.points.map(p=>({...p}));
         return c;
       });
     } else resOrigObjs=null;
@@ -1967,34 +1970,39 @@ document.addEventListener('mousemove',e=>{
   const dy=Math.round((e.clientY-resSY)/zoom);
   let nW=resOW,nH=resOH,offX=0,offY=0;
 
-  // e/s: 오른쪽·아래로 늘리기 (내용 불변)
   if(resDir.includes('e')) nW=Math.max(10,resOW+dx);
   if(resDir.includes('s')) nH=Math.max(10,resOH+dy);
-  // w: 왼쪽으로 당기기 → 캔버스 왼쪽이 좁아짐, 내용은 오른쪽으로 밀려야 함
+  // w: 왼쪽 경계가 왼쪽으로 확장 → 객체는 오른쪽으로 offX만큼 평행이동
   if(resDir.includes('w')){ nW=Math.max(10,resOW-dx); offX=-dx; }
-  // n: 위쪽으로 당기기 → 캔버스 위쪽이 좁아짐, 내용은 아래로 밀려야 함
+  // n: 위쪽 경계가 위로 확장 → 객체는 아래로 offY만큼 평행이동
   if(resDir.includes('n')){ nH=Math.max(10,resOH-dy); offY=-dy; }
 
-  // 캔버스 크기 변경
+  // 캔버스 크기 변경 (DPR 적용)
   CW=nW;CH=nH;
-  [bgC,MC,HC].forEach(c=>{c.width=nW;c.height=nH;});
+  [bgC,MC,HC].forEach(c=>{
+    c.width=Math.round(nW*DPR);c.height=Math.round(nH*DPR);
+    c.style.width=nW+'px';c.style.height=nH+'px';
+    const cx=c.getContext('2d');if(cx)cx.setTransform(DPR,0,0,DPR,0,0);
+  });
+  ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
   SV.setAttribute('width',nW);SV.setAttribute('height',nH);
   document.getElementById('statusSize').textContent=`${nW} × ${nH} px`;
 
-  // n/w 방향: 원본 스냅샷 기준으로 객체 좌표 오프셋 적용
+  // n/w 방향: 객체를 비율 변환 없이 offX/offY만큼 단순 평행이동
   if(resOrigObjs&&(offX!==0||offY!==0)){
     objs=resOrigObjs.map(o=>{
       const c=Object.assign({},o);
-      if(c.type==='stroke') c.points=o.points.map(p=>({x:p.x+offX,y:p.y+offY}));
-      else if(c.type==='shape'){c.x1=o.x1+offX;c.y1=o.y1+offY;c.x2=o.x2+offX;c.y2=o.y2+offY;}
-      else {c.x=(o.x||0)+offX;c.y=(o.y||0)+offY;}
+      if(c.type==='stroke')
+        c.points=o.points.map(p=>({x:p.x+offX, y:p.y+offY}));
+      else if(c.type==='shape')
+        {c.x1=o.x1+offX;c.y1=o.y1+offY;c.x2=o.x2+offX;c.y2=o.y2+offY;}
+      else
+        {c.x=(o.x||0)+offX; c.y=(o.y||0)+offY;}
       return c;
     });
   }
   renderAll();
 });
-
-// 캔버스 핸들 mouseup은 document.addEventListener('mouseup') 에서 처리됨
 
 function setCS(w,h){
   CW=w; CH=h;
