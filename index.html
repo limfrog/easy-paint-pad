@@ -539,12 +539,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
         <label style="font-size:9px;color:var(--muted);display:flex;align-items:center;gap:2px;cursor:pointer">
           <input type="checkbox" id="boxFill" onchange="updateTextStyle()" style="width:11px;height:11px;cursor:pointer">배경
         </label>
-        <div id="boxBgBtn" onclick="chooseBoxBgColor()" title="배경색 선택"
-          style="display:none;width:20px;height:20px;border:1.5px solid var(--border);border-radius:3px;cursor:pointer;flex-shrink:0;position:relative;overflow:hidden;
-          background-image:linear-gradient(45deg,#bbb 25%,transparent 25%),linear-gradient(-45deg,#bbb 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#bbb 75%),linear-gradient(-45deg,transparent 75%,#bbb 75%);
-          background-size:6px 6px;background-position:0 0,0 3px,3px -3px,-3px 0;background-color:#fff;">
-          <div id="boxBgBtnInner" style="position:absolute;inset:0;"></div>
-        </div>
+
       </div>
       <div class="font-preview-box" id="fontPreview">가Aa</div>
     </div>
@@ -1137,6 +1132,7 @@ function onOpacityChange(tgt,val){
   }
   updColorUI();
   if(selId&&tgt==='fg'){const o=objs.find(x=>x.id===selId);if(o){o.alpha=a;renderAll();saveHDebounced();}}
+  if(tgt==='bg'&&selId){const o=objs.find(x=>x.id===selId);if(o&&o.type==='text'&&o.box&&o.boxFill){o.boxBgColor=bgH;renderAll();}}
 }
 // ── 기본 12색 팔레트
 const PAL=['#000000','#ffffff','#808080','#c0c0c0',
@@ -1210,6 +1206,7 @@ document.getElementById('colorPickerInput').addEventListener('input',e=>{
     fgH=c;applyColorToSel();updColorUI();
   } else {
     bgH=c;updColorUI();
+    if(selId){const o=objs.find(x=>x.id===selId);if(o&&o.type==='text'&&o.box&&o.boxFill){o.boxBgColor=bgH;renderAll();}}
   }
 });
 function applyColorToSel(){
@@ -1241,7 +1238,7 @@ function updateTextStyle(){
   if(bpEl) fBoxPad=parseInt(bpEl.value)||6;
   if(brEl) fBoxRadius=parseInt(brEl.value)||0;
   if(bbEl) fBoxBorder=parseInt(bbEl.value)||1;
-  if(bfEl){ fBoxFill=bfEl.checked; updBoxBgBtn(); }
+  if(bfEl){ fBoxFill=bfEl.checked; }
   updFontPreview();
   // 열린 에디터에 즉시 반영
   if(actTed){
@@ -1395,7 +1392,8 @@ function commitT(){
     bold:fBold, italic:fItal, underline:fUnder,
     color:fgH, alpha:fgA,
     _edW:edW, _edH:edH,
-    box:fBox, boxPad:fBoxPad, boxRadius:fBoxRadius, boxBorder:fBoxBorder, boxFill:fBoxFill
+    box:fBox, boxPad:fBoxPad, boxRadius:fBoxRadius, boxBorder:fBoxBorder, boxFill:fBoxFill,
+    boxBgColor:fBoxFill?bgH:''  // 배경 체크 시 현재 배경색 저장
   };
 
   // _oid가 숫자(기존 객체)인지 null/undefined(새 객체)인지 확인
