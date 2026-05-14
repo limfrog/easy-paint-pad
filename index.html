@@ -1453,6 +1453,10 @@ function openTed(x,y,exist=null){
   ed.className='canvas-text-editor';
   ed.style.left=x+'px'; ed.style.top=y+'px';
   ed.spellcheck=false;
+  ed.autocorrect='off';
+  ed.autocapitalize='off';
+  ed.setAttribute('autocorrect','off');
+  ed.setAttribute('autocapitalize','off');
   ed._x=x; ed._y=y; ed._oid=(exist ? exist.id : null);
   if(exist){
     ed.value=exist.text||'';
@@ -1471,7 +1475,15 @@ function openTed(x,y,exist=null){
     // 편집 중인 객체 id 설정 → renderAll에서 해당 텍스트 숨김
     editingId=exist.id;
   } else {
-    editingId=null;
+    // 새 텍스트: 임시 placeholder를 objs에 추가해 editingId로 숨김
+    const tmpId=mkId();
+    const tmpObj={id:tmpId,type:'text',x:ed._x,y:ed._y,text:'',
+      fontFamily:fFam,fontSize:fSz,bold:fBold,italic:fItal,underline:fUnder,
+      color:fgH,alpha:fgA,box:fBox,boxPad:fBoxPad,boxRadius:fBoxRadius,
+      boxBorder:fBoxBorder,boxFill:fBoxFill,boxBgColor:fBoxBgColor,boxBgAlpha:fBoxBgAlpha};
+    objs.push(tmpObj);
+    ed._oid=tmpId; // 새 텍스트도 기존 객체처럼 처리
+    editingId=tmpId;
   }
   // 에디터에 현재 스타일 적용
   ed.style.fontFamily=fFam;
@@ -1508,7 +1520,11 @@ function commitT(){
   if(TO.contains(ed)) TO.removeChild(ed);
 
   const val=ed.value;
-  if(!val.trim()){ renderAll(); return; }
+  if(!val.trim()){
+    // placeholder 제거
+    if(ed._oid!=null){const i=objs.findIndex(x=>x.id===ed._oid);if(i>-1)objs.splice(i,1);}
+    renderAll(); return;
+  }
 
   const props={
     fontFamily:fFam, fontSize:fSz,
@@ -1520,14 +1536,18 @@ function commitT(){
     boxBgAlpha:fBoxFill?bgA:1
   };
 
-  // _oid가 숫자(기존 객체)인지 null/undefined(새 객체)인지 확인
   const oid=ed._oid;
-  if(oid!=null && typeof oid==='number'){
-    const o=objs.find(x=>x.id===oid);
-    if(o){
-      Object.assign(o, props);
-      o.text=val;
-      selId=o.id;
+  if(oid!=null){
+    const idx=objs.findIndex(x=>x.id===oid);
+    if(idx>-1){
+      Object.assign(objs[idx], props);
+      objs[idx].text=val;
+      selId=objs[idx].id;
+    } else {
+      // placeholder가 이미 제거된 경우 새로 추가
+      const newObj=Object.assign({id:mkId(),type:'text',x:ed._x,y:ed._y,text:val},props);
+      objs.push(newObj);
+      selId=newObj.id;
     }
   } else {
     const newObj=Object.assign(
