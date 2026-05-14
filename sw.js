@@ -1,4 +1,4 @@
-const CACHE_NAME = 'easy-paint-pad-v1';
+const CACHE_NAME = 'easy-paint-pad-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -9,6 +9,7 @@ self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
   );
+  // 즉시 활성화 (기존 버전 대기 없이)
   self.skipWaiting();
 });
 
@@ -25,4 +26,9 @@ self.addEventListener('fetch', e => {
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request))
   );
+});
+
+// 업데이트 메시지 수신 (클라이언트 → 서비스워커)
+self.addEventListener('message', e => {
+  if(e.data === 'skipWaiting') self.skipWaiting();
 });

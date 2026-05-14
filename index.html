@@ -265,6 +265,23 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 .tooltip.show{opacity:1;}
 .tooltip-key{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);
   border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600;font-family:monospace;}
+/* 업데이트 알림 배너 */
+.update-banner{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:#1a1a1a;color:#fff;border-radius:12px;
+  padding:12px 20px;display:flex;align-items:center;gap:12px;
+  box-shadow:0 4px 24px rgba(0,0,0,.35);z-index:9998;
+  font-size:13px;font-family:inherit;
+  animation:slideUp .3s ease;
+}
+.update-banner.hidden{display:none;}
+.update-btn{background:var(--accent);color:#fff;border:none;border-radius:7px;
+  padding:6px 16px;font-size:12px;font-family:inherit;cursor:pointer;font-weight:600;}
+.update-btn:hover{background:#106ebe;}
+.update-dismiss{background:transparent;color:rgba(255,255,255,.6);border:none;
+  cursor:pointer;font-size:18px;line-height:1;padding:0 4px;margin-left:4px;}
+.update-dismiss:hover{color:#fff;}
+@keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
 .drop-overlay{position:absolute;inset:0;z-index:200;background:rgba(0,120,212,0.13);
   border:3px dashed #0078d4;border-radius:6px;display:none;
   align-items:center;justify-content:center;pointer-events:none;}
@@ -341,6 +358,13 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <button class="sc-btn sc-save" onclick="scSaveImg()">그림 저장</button>
     </div>
   </div>
+</div>
+
+<!-- 업데이트 알림 배너 -->
+<div class="update-banner hidden" id="updateBanner">
+  <span>🎉 새 버전이 있습니다!</span>
+  <button class="update-btn" onclick="applyUpdate()">지금 업데이트</button>
+  <button class="update-dismiss" onclick="dismissUpdate()" title="나중에">✕</button>
 </div>
 
 <!-- Custom Tooltip -->
@@ -2629,11 +2653,47 @@ window.addEventListener('beforeunload', e=>{
   return e.returnValue;
 });
 
-// ════════════ PWA 서비스워커 등록 ════════════
+// ════════════ PWA 서비스워커 등록 + 업데이트 감지 ════════════
+let _swReg=null;
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+    navigator.serviceWorker.register('./sw.js').then(reg=>{
+      _swReg=reg;
+
+      // 이미 대기 중인 업데이트가 있으면 즉시 배너 표시
+      if(reg.waiting) showUpdateBanner(reg.waiting);
+
+      // 새 서비스워커 설치 감지
+      reg.addEventListener('updatefound', ()=>{
+        const newSW=reg.installing;
+        newSW.addEventListener('statechange', ()=>{
+          if(newSW.state==='installed' && navigator.serviceWorker.controller){
+            showUpdateBanner(newSW);
+          }
+        });
+      });
+    }).catch(()=>{});
+
+    // 서비스워커 컨트롤러 변경 시 자동 새로고침
+    navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+      window.location.reload();
+    });
   });
+}
+
+let _pendingSW=null;
+function showUpdateBanner(sw){
+  _pendingSW=sw;
+  document.getElementById('updateBanner').classList.remove('hidden');
+}
+function applyUpdate(){
+  if(_pendingSW){
+    _pendingSW.postMessage('skipWaiting');
+  }
+  document.getElementById('updateBanner').classList.add('hidden');
+}
+function dismissUpdate(){
+  document.getElementById('updateBanner').classList.add('hidden');
 }
 
 // ════════════ THEME ════════════
