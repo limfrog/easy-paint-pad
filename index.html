@@ -569,6 +569,17 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
         <span style="font-size:9px;color:var(--muted)">채우기</span>
         <select class="sel" id="shapeFill" style="width:58px" onchange="applyShapeFill()"><option value="none">없음</option><option value="fg">전경</option><option value="bg">배경</option></select>
       </div>
+      <div class="btn-row" style="align-items:center;gap:4px;padding-top:2px" id="lineAngleRow" style="display:none">
+        <span style="font-size:9px;color:var(--muted)">직선각도</span>
+        <select class="sel" id="lineAngle" style="width:68px">
+          <option value="free">자유</option>
+          <option value="0">수평 0°</option>
+          <option value="90">수직 90°</option>
+          <option value="45">대각 45°</option>
+          <option value="135">대각 135°</option>
+          <option value="shift">Shift=고정</option>
+        </select>
+      </div>
     </div>
   </div><span class="rs-label">도형</span></div>
   <!-- 두께 -->
@@ -1254,6 +1265,9 @@ function setTool(t){
   const N={marque:'영역 선택',select2:'객체 선택',pencil:'연필',brush:'브러시',eraser:'지우개',fill:'채우기',picker:'스포이드',text:'텍스트',line:'선',rect:'사각형',ellipse:'타원',arrow:'화살표',staff:'오선'};
   document.getElementById('statusTool').textContent='도구: '+(N[t]||t);
   HC.style.cursor=t==='select2'?'default':t==='text'?'text':t==='marque'?'crosshair':'crosshair';
+  // 직선 도구일 때만 각도 옵션 표시
+  const lar=document.getElementById('lineAngleRow');
+  if(lar) lar.style.display=t==='line'?'flex':'none';
 }
 
 // ════════════ COLOR ════════════
@@ -1474,47 +1488,49 @@ function applyShapeFill(){
 
 // ════════════ TEXT EDITOR ════════════
 function openTed(x,y,exist=null){
-  // exist가 있으면 commitT() 전에 미리 editingId 설정
-  // → commitT()의 renderAll()에서 이미 숨김 처리됨 (잔상 방지)
-  if(exist) editingId=exist.id;
   commitT();
   const ed=document.createElement('textarea');
   ed.className='canvas-text-editor';
   ed.style.left=x+'px'; ed.style.top=y+'px';
   ed.spellcheck=false;
-  ed.autocorrect='off';
-  ed.autocapitalize='off';
-  ed.setAttribute('autocorrect','off');
-  ed.setAttribute('autocapitalize','off');
-  ed._x=x; ed._y=y; ed._oid=(exist ? exist.id : null);
+  ed.autocorrect='off'; ed.autocapitalize='off';
+  ed.setAttribute('autocorrect','off'); ed.setAttribute('autocapitalize','off');
+  ed._x=x; ed._y=y; ed._oid=null; ed._savedObj=null;
+
   if(exist){
+    // 기존 텍스트 편집: objs에서 제거해 캔버스 잔상 방지
+    const idx=objs.findIndex(o=>o.id===exist.id);
+    if(idx>-1){
+      ed._savedObj=objs.splice(idx,1)[0];
+      ed._savedIdx=idx; // 원래 위치 저장
+      ed._oid=exist.id;
+    }
     ed.value=exist.text||'';
     if(exist._edW) ed.style.width=exist._edW+'px';
     if(exist._edH) ed.style.height=exist._edH+'px';
     if(exist.fontFamily){ fFam=exist.fontFamily; document.getElementById('fontFamily').value=fFam; }
-    if(exist.fontSize)  { fSz=exist.fontSize;   document.getElementById('fontSizeInput').value=fSz; }
+    if(exist.fontSize)  { fSz=exist.fontSize;    document.getElementById('fontSizeInput').value=fSz; }
     fBold=!!exist.bold; fItal=!!exist.italic; fUnder=!!exist.underline; fBox=!!exist.box;
-    fBoxPad=exist.boxPad??6; fBoxRadius=exist.boxRadius??0; fBoxBorder=exist.boxBorder??1; fBoxFill=!!exist.boxFill; fBoxBgColor=exist.boxBgColor||''; fBoxBgAlpha=exist.boxBgAlpha!=null?exist.boxBgAlpha:1;
+    fBoxPad=exist.boxPad??0; fBoxRadius=exist.boxRadius??0; fBoxBorder=exist.boxBorder??1;
+    fBoxFill=!!exist.boxFill; fBoxBgColor=exist.boxBgColor||''; fBoxBgAlpha=exist.boxBgAlpha??1;
     document.getElementById('btn-bold').classList.toggle('active',fBold);
     document.getElementById('btn-italic').classList.toggle('active',fItal);
     document.getElementById('btn-underline').classList.toggle('active',fUnder);
     document.getElementById('btn-box').classList.toggle('active',fBox);
     const bo=document.getElementById('box-options'); if(bo) bo.style.display=fBox?'flex':'none';
-    editingId=exist.id; // 기존 텍스트 캔버스에서 숨김
-  } else {
-    editingId=null; // 새 텍스트는 숨길 게 없음
   }
-  // 에디터에 현재 스타일 적용
-  ed.style.fontFamily=fFam;
-  ed.style.fontSize=fSz+'px';
+
+  ed.style.fontFamily=fFam; ed.style.fontSize=fSz+'px';
   ed.style.fontWeight=fBold?'bold':'normal';
   ed.style.fontStyle=fItal?'italic':'normal';
   ed.style.textDecoration=fUnder?'underline':'none';
   ed.style.color=fgH;
+
   TO.style.pointerEvents='auto';
   TO.appendChild(ed);
   actTed=ed;
-  renderAll();
+  editingId=null; // objs에서 이미 제거했으므로 editingId 불필요
+  renderAll();    // 제거된 상태로 렌더 (잔상 없음)
   setTimeout(()=>ed.focus(),0);
   ed.addEventListener('keydown',e=>{
     if(e.key==='Escape'){ e.preventDefault(); commitT(); }
@@ -1526,59 +1542,48 @@ function commitT(){
   if(!actTed)return;
   const ed=actTed;
   actTed=null;
-  // editingId는 아직 유지 (removeChild + clearRect 후 renderAll까지 숨김 유지)
+  editingId=null;
   TO.style.pointerEvents='none';
 
-  // 크기는 DOM 제거 전에 읽어야 함
-  const edW=Math.max(80, ed.offsetWidth);
-  const edH=Math.max(28, ed.offsetHeight);
-
-  // DOM에서 제거 후 즉시 canvas 클리어 (잔상 방지)
+  const edW=Math.max(80,ed.offsetWidth);
+  const edH=Math.max(28,ed.offsetHeight);
   if(TO.contains(ed)) TO.removeChild(ed);
-  ctx.clearRect(0,0,CW,CH);
-  drawBG();
 
-  const val=ed.value;
-  if(!val.trim()){
-    editingId=null; // 확정 전 숨김 해제
+  const val=ed.value.trim();
+
+  if(!val){
+    // 빈 텍스트: 보관한 객체를 원래 위치에 복원
+    if(ed._savedObj){
+      const insertAt=ed._savedIdx!=null?Math.min(ed._savedIdx,objs.length):objs.length;
+      objs.splice(insertAt,0,ed._savedObj);
+    }
     renderAll(); return;
   }
 
   const props={
     fontFamily:fFam, fontSize:fSz,
     bold:fBold, italic:fItal, underline:fUnder,
-    color:fgH, alpha:fgA,
-    _edW:edW, _edH:edH,
+    color:fgH, alpha:fgA, _edW:edW, _edH:edH,
     box:fBox, boxPad:fBoxPad, boxRadius:fBoxRadius, boxBorder:fBoxBorder, boxFill:fBoxFill,
-    boxBgColor:fBoxFill?bgH:'',
-    boxBgAlpha:fBoxFill?bgA:1
+    boxBgColor:fBoxFill?bgH:'', boxBgAlpha:fBoxFill?bgA:1
   };
 
-  const oid=ed._oid;
-  if(oid!=null){
-    const o=objs.find(x=>x.id===oid);
-    if(o){
-      Object.assign(o, props);
-      o.text=val;
-      selId=o.id;
-    } else {
-      const newObj=Object.assign({id:mkId(),type:'text',x:ed._x,y:ed._y,text:val},props);
-      objs.push(newObj);
-      selId=newObj.id;
-    }
+  if(ed._savedObj){
+    // 기존 객체 업데이트 후 objs에 원래 위치에 삽입
+    const o=Object.assign(ed._savedObj, props);
+    o.text=val;
+    // 원래 인덱스 위치에 복원 (없으면 맨 뒤)
+    const insertAt=ed._savedIdx!=null?Math.min(ed._savedIdx,objs.length):objs.length;
+    objs.splice(insertAt,0,o);
+    selId=o.id;
   } else {
-    const newObj=Object.assign(
-      {id:mkId(), type:'text', x:ed._x, y:ed._y, text:val},
-      props
-    );
+    // 새 텍스트 객체 추가
+    const newObj=Object.assign({id:mkId(),type:'text',x:ed._x,y:ed._y,text:val},props);
     objs.push(newObj);
     selId=newObj.id;
   }
 
-  editingId=null; // 객체 업데이트 완료 후 숨김 해제
   saveH();
-
-  // 선택 도구로 전환
   tool='select2';
   document.querySelectorAll('[id^="tool-"]').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('#tool-select2').forEach(b=>b.classList.add('active'));
@@ -2096,7 +2101,40 @@ function onMove(e){
   if(dragging&&selId){const o=objs.find(x=>x.id===selId);if(o){const dx=x-dragLX,dy=y-dragLY;dragLX=x;dragLY=y;moveO(o,dx,dy);renderAll();}return;}
   if(!drawing)return;
   if(actStroke){actStroke.points.push({x:xi,y:yi});renderAll();}
-  if(actShape){actShape.x2=xi;actShape.y2=yi;renderAll();}
+  if(actShape){
+    let ex=xi, ey=yi;
+    if(actShape.shape==='line'){
+      const angleMode=document.getElementById('lineAngle')?.value||'free';
+      if(angleMode==='0'){
+        // 수평: y를 시작점과 같게
+        ey=actShape.y1;
+      } else if(angleMode==='90'){
+        // 수직: x를 시작점과 같게
+        ex=actShape.x1;
+      } else if(angleMode==='45'){
+        // 45도: dx=dy (같은 부호)
+        const dx=xi-actShape.x1, dy=yi-actShape.y1;
+        const d=Math.round((Math.abs(dx)+Math.abs(dy))/2);
+        ex=actShape.x1+(dx>=0?d:-d);
+        ey=actShape.y1+(dy>=0?d:-d);
+      } else if(angleMode==='135'){
+        // 135도: dx=-dy
+        const dx=xi-actShape.x1, dy=yi-actShape.y1;
+        const d=Math.round((Math.abs(dx)+Math.abs(dy))/2);
+        ex=actShape.x1+(dx>=0?d:-d);
+        ey=actShape.y1-(dy>=0?d:-d);
+      } else if(angleMode==='shift'||e.shiftKey){
+        // Shift: 가장 가까운 45° 배수로 스냅
+        const dx=xi-actShape.x1, dy=yi-actShape.y1;
+        const angle=Math.atan2(dy,dx);
+        const snapped=Math.round(angle/(Math.PI/4))*(Math.PI/4);
+        const len=Math.sqrt(dx*dx+dy*dy);
+        ex=Math.round(actShape.x1+len*Math.cos(snapped));
+        ey=Math.round(actShape.y1+len*Math.sin(snapped));
+      }
+    }
+    actShape.x2=ex; actShape.y2=ey; renderAll();
+  }
 }
 
 function onUp(){
