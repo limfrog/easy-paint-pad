@@ -756,7 +756,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <div class="main-area">
   <div class="canvas-area" id="canvasArea">
     <div class="drop-overlay" id="dropOverlay">
-      <div class="drop-msg">🖼️ 놓기: 객체로 삽입 &nbsp;|&nbsp; Shift+놓기: 새 파일로 열기</div>
+      <div class="drop-msg">🖼️ 이미지: 객체로 삽입 &nbsp;|&nbsp; Shift+드롭: 새 파일 &nbsp;|&nbsp; 📁 EPP: 프로젝트 열기</div>
     </div>
     <div class="canvas-wrapper" id="canvasWrapper">
       <canvas id="bgCanvas" width="800" height="600"></canvas>
@@ -1472,6 +1472,9 @@ function applyShapeFill(){
 
 // ════════════ TEXT EDITOR ════════════
 function openTed(x,y,exist=null){
+  // exist가 있으면 commitT() 전에 미리 editingId 설정
+  // → commitT()의 renderAll()에서 이미 숨김 처리됨 (잔상 방지)
+  if(exist) editingId=exist.id;
   commitT();
   const ed=document.createElement('textarea');
   ed.className='canvas-text-editor';
@@ -1521,18 +1524,21 @@ function commitT(){
   if(!actTed)return;
   const ed=actTed;
   actTed=null;
-  editingId=null; // 편집 종료 → 텍스트 다시 렌더
+  // editingId는 아직 유지 (removeChild + clearRect 후 renderAll까지 숨김 유지)
   TO.style.pointerEvents='none';
 
   // 크기는 DOM 제거 전에 읽어야 함
   const edW=Math.max(80, ed.offsetWidth);
   const edH=Math.max(28, ed.offsetHeight);
 
-  // DOM에서 제거
+  // DOM에서 제거 후 즉시 canvas 클리어 (잔상 방지)
   if(TO.contains(ed)) TO.removeChild(ed);
+  ctx.clearRect(0,0,CW,CH);
+  drawBG();
 
   const val=ed.value;
   if(!val.trim()){
+    editingId=null; // 확정 전 숨김 해제
     renderAll(); return;
   }
 
@@ -1554,7 +1560,6 @@ function commitT(){
       o.text=val;
       selId=o.id;
     } else {
-      // 기존 객체가 없으면 새로 추가
       const newObj=Object.assign({id:mkId(),type:'text',x:ed._x,y:ed._y,text:val},props);
       objs.push(newObj);
       selId=newObj.id;
@@ -1568,6 +1573,7 @@ function commitT(){
     selId=newObj.id;
   }
 
+  editingId=null; // 객체 업데이트 완료 후 숨김 해제
   saveH();
 
   // 선택 도구로 전환
@@ -2403,6 +2409,14 @@ canvasArea.addEventListener('drop',e=>{
   dropOverlay.classList.remove('active');
   const file=e.dataTransfer.files[0];
   if(!file) return;
+  // EPP 파일: 저장 확인 후 열기
+  if(file.name.toLowerCase().endsWith('.epp')){
+    const doOpen=()=>loadEPP(file);
+    if(isDirty) showSaveConfirm('현재 작업이 저장되지 않았습니다.', doOpen);
+    else doOpen();
+    return;
+  }
+  // 이미지 파일
   if(e.shiftKey || objs.length===0){
     // Shift+드롭 or 빈 캔버스 → 새 파일로 열기
     loadImageFile(file);
