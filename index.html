@@ -2716,6 +2716,7 @@ window.addEventListener('beforeunload', e=>{
 
 // ════════════ PWA 서비스워커 등록 + 업데이트 감지 ════════════
 let _swReg=null;
+let _waitingForUpdate=false; // 사용자가 업데이트 클릭한 경우에만 새로고침
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
     navigator.serviceWorker.register('./sw.js').then(reg=>{
@@ -2735,9 +2736,9 @@ if('serviceWorker' in navigator){
       });
     }).catch(()=>{});
 
-    // 서비스워커 컨트롤러 변경 시 자동 새로고침
+    // controllerchange: 사용자가 업데이트 버튼을 클릭한 경우에만 새로고침
     navigator.serviceWorker.addEventListener('controllerchange', ()=>{
-      window.location.reload();
+      if(_waitingForUpdate) window.location.reload();
     });
   });
 }
@@ -2748,6 +2749,7 @@ function showUpdateBanner(sw){
   document.getElementById('updateBanner').classList.remove('hidden');
 }
 function applyUpdate(){
+  _waitingForUpdate=true; // 사용자가 명시적으로 업데이트 선택
   if(_pendingSW){
     _pendingSW.postMessage('skipWaiting');
   }
