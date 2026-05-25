@@ -1659,13 +1659,18 @@ function applyEraserStroke(eraserObj){
   }
   tc.putImageData(imgData,0,0);
 
-  // 5) 결과를 image 객체로 교체
+  // 5) 결과를 image 객체로 교체 — 원래 레이어 순서 유지
   const resultURL=tmpC.toDataURL('image/png');
   const img=new Image();
   img.onload=()=>{
     const newImgObj={id:mkId(),type:'image',img,x:0,y:0,w:CW,h:CH,alpha:1};
     const preserved=overlapping.filter(o=>o.type==='text'||o.type==='shape');
-    objs=[...untouched,newImgObj,...preserved];
+    // 원래 objs 순서에서 pixelObjs 중 첫 번째 위치에 newImgObj 삽입
+    const firstPixelIdx=objs.findIndex(o=>pixelObjs.includes(o));
+    const newObjs=objs.filter(o=>!pixelObjs.includes(o));
+    const insertAt=firstPixelIdx>=0 ? Math.min(firstPixelIdx, newObjs.length) : newObjs.length;
+    newObjs.splice(insertAt,0,newImgObj);
+    objs=newObjs;
     saveH();renderAll();refreshList();
   };
   img.src=resultURL;
@@ -1761,9 +1766,12 @@ function marqueCut(){
   const holeImg=new Image();holeImg.src=holeDataURL;
   holeImg.onload=()=>{
     const baseObj={id:mkId(),type:'image',img:holeImg,x:0,y:0,w:CW,h:CH,alpha:1};
-    // 겹치는 image/stroke → 구멍뚫린 이미지로 교체
-    // 나머지(비겹침 image/stroke + text + shape) → 그대로 보존
-    objs=[baseObj,...keepObjs];
+    // pixelObjs 중 첫 번째 인덱스 위치에 baseObj 삽입 (레이어 순서 유지)
+    const firstPixelIdx=objs.findIndex(o=>pixelObjs.includes(o));
+    const newObjs=[...keepObjs];
+    const insertAt=firstPixelIdx>=0 ? Math.min(firstPixelIdx, newObjs.length) : 0;
+    newObjs.splice(insertAt,0,baseObj);
+    objs=newObjs;
     marqueCommitted=true;
     marqueRect={x:sx,y:sy,w:sw,h:sh};
     saveH();
