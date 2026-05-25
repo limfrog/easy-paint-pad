@@ -1644,9 +1644,11 @@ function applyEraserStroke(eraserObj){
   const untouched=objs.filter(o=>!overlapping.includes(o));
 
   // 4) 겹치는 객체들을 임시 캔버스에 렌더 → 마스크 픽셀 지우기
+  // text/shape는 벡터로 보존, image/stroke만 픽셀 처리
+  const pixelObjs=overlapping.filter(o=>o.type==='image'||o.type==='stroke');
   const tmpC=document.createElement('canvas');tmpC.width=CW;tmpC.height=CH;
   const tc=tmpC.getContext('2d');
-  overlapping.forEach(o=>drawO(tc,o,false));
+  pixelObjs.forEach(o=>drawO(tc,o,false));
   const imgData=tc.getImageData(0,0,CW,CH);
   const d=imgData.data;
   for(let i=0;i<d.length;i+=4){
@@ -1662,7 +1664,8 @@ function applyEraserStroke(eraserObj){
   const img=new Image();
   img.onload=()=>{
     const newImgObj={id:mkId(),type:'image',img,x:0,y:0,w:CW,h:CH,alpha:1};
-    objs=[...untouched,newImgObj];
+    const preserved=overlapping.filter(o=>o.type==='text'||o.type==='shape');
+    objs=[...untouched,newImgObj,...preserved];
     saveH();renderAll();refreshList();
   };
   img.src=resultURL;
@@ -1682,7 +1685,8 @@ function floodFill(px,py,hex,alpha){
   while(st.length){const[cx,cy]=st.pop();if(cx<0||cy<0||cx>=CW||cy>=CH)continue;const i=cy*CW+cx;if(vis[i])continue;vis[i]=1;if(!match(i*4))continue;d[i*4]=fR;d[i*4+1]=fG;d[i*4+2]=fB;d[i*4+3]=fAb;st.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);}
   tc.putImageData(id,0,0);
   const img=new Image();img.onload=()=>renderAll();img.src=tmp.toDataURL();
-  objs.push({id:mkId(),type:'image',img,x:0,y:0,w:CW,h:CH,alpha:1});
+  const vecObjs=objs.filter(o=>o.type==='text'||o.type==='shape');
+  objs=[{id:mkId(),type:'image',img,x:0,y:0,w:CW,h:CH,alpha:1},...vecObjs];
   saveH();
 }
 
@@ -1728,38 +1732,38 @@ function marqueCut(){
   const sw=Math.min(rw, CW-sx), sh=Math.min(rh, CH-sy);
   if(sw<=0||sh<=0){marqueRect=null;drawMarque();return;}
 
-  // 1) 현재 화면 전체를 flatten → 선택 영역 픽셀 추출
-  const full=flatten();
+  // 1) 선택 영역과 겹치는 image/stroke만 픽셀 처리
+  //    겹치지 않는 image/stroke + text/shape 전부 → 객체로 보존
+  const pixelObjs=objs.filter(o=>{
+    if(o.type==='text'||o.type==='shape') return false;
+    const b=getBounds(o);
+    return b.x<sx+sw && b.x+b.w>sx && b.y<sy+sh && b.y+b.h>sy;
+  });
+  const keepObjs=objs.filter(o=>!pixelObjs.includes(o));
+
+  // 겹치는 image/stroke만 임시 캔버스에 렌더 → 픽셀 추출
+  const full=document.createElement('canvas');
+  full.width=CW; full.height=CH;
   const fc=full.getContext('2d');
+  pixelObjs.forEach(o=>drawO(fc,o,false));
+
   marqueSnap=fc.getImageData(sx,sy,sw,sh);
   marqueSnapX=sx;marqueSnapY=sy;marqueSnapW=sw;marqueSnapH=sh;
 
-  // 2) flatten 결과에서 선택 영역만 투명하게 지우기
+  // 2) 선택 영역만 구멍 뚫기
   fc.clearRect(sx,sy,sw,sh);
 
-  // 3) 기존 objs 대신 구멍 뚫린 flatten 이미지 하나로 교체
-  //    단, 겹치지 않는 객체(벡터)는 그대로 유지하고
-  //    겹치는 객체만 구멍 뚫린 이미지로 교체
-  //    → 가장 단순하고 확실한 방법: flatten 전체를 구멍 뚫린 image 하나로
-  //      + 겹치지 않는 순수 벡터 객체는 다시 위에 올림
-  const nonOverlapping = objs.filter(o=>{
-    const b=getBounds(o);
-    return !(b.x<sx+sw && b.x+b.w>sx && b.y<sy+sh && b.y+b.h>sy);
-  });
-
-  // 구멍 뚫린 flatten을 ImageData → 즉시 canvas에 올려 Image 생성 (동기)
+  // 3) 구멍 뚫린 픽셀 → image 객체로 저장 (겹치는 영역만 포함)
   const holeCanvas=document.createElement('canvas');
   holeCanvas.width=CW;holeCanvas.height=CH;
   holeCanvas.getContext('2d').drawImage(full,0,0);
-  // toDataURL은 동기이므로 img.onload 없이 Image 생성 후 바로 사용 가능
   const holeDataURL=holeCanvas.toDataURL('image/png');
   const holeImg=new Image();holeImg.src=holeDataURL;
-  // Image가 같은 탭에서 생성된 dataURL은 즉시 complete=true가 됨
-  // 혹시 모르니 onload 후 objs 세팅
   holeImg.onload=()=>{
     const baseObj={id:mkId(),type:'image',img:holeImg,x:0,y:0,w:CW,h:CH,alpha:1};
-    // 겹치지 않는 벡터 객체는 위에 유지
-    objs=[baseObj,...nonOverlapping];
+    // 겹치는 image/stroke → 구멍뚫린 이미지로 교체
+    // 나머지(비겹침 image/stroke + text + shape) → 그대로 보존
+    objs=[baseObj,...keepObjs];
     marqueCommitted=true;
     marqueRect={x:sx,y:sy,w:sw,h:sh};
     saveH();
