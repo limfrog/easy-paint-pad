@@ -380,7 +380,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 0.9.6 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 0.9.7 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -1833,13 +1833,13 @@ function marqueCopy(){
       `복사됨: ${marqueSnapW}×${marqueSnapH} px — Ctrl+V로 붙여넣기`;
     return true;
   }
-  // 아직 잘리기 전(드래그만 한 상태) → flatten에서 픽셀 읽기
+  // 아직 잘리기 전(드래그만 한 상태) → 픽셀(image/stroke)만 읽기 (원본 보존)
   const rx=Math.min(marqueRect.x,marqueRect.x+marqueRect.w);
   const ry=Math.min(marqueRect.y,marqueRect.y+marqueRect.h);
   const sw=Math.round(Math.abs(marqueRect.w)), sh=Math.round(Math.abs(marqueRect.h));
   const sx=Math.max(0,Math.round(rx)), sy=Math.max(0,Math.round(ry));
   if(sw<2||sh<2) return false;
-  const full=flatten();
+  const full=flattenPixels();
   const csw=Math.min(sw,CW-sx), csh=Math.min(sh,CH-sy);
   const snap=full.getContext('2d').getImageData(sx,sy,csw,csh);
   pixelClip={snap, w:csw, h:csh};
@@ -2055,7 +2055,17 @@ function onDown(e){
       const ry2=Math.min(marqueRect.y,marqueRect.y+marqueRect.h);
       const rw2=Math.abs(marqueRect.w),rh2=Math.abs(marqueRect.h);
       if(xi>=rx2&&xi<=rx2+rw2&&yi>=ry2&&yi<=ry2+rh2){
-        marqueCut(); return;
+        if(e.ctrlKey||e.metaKey){
+          // Ctrl+클릭: 원본 보존하며 복사 후 드래그 준비
+          marqueCopy();
+          marqueCut(); // snap 만들어서 드래그 가능하게
+          marqueDragCopy={snap:marqueSnap,x:marqueSnapX,y:marqueSnapY,
+                         w:marqueSnapW,h:marqueSnapH}; // 원본 복원용 백업
+          HC.style.cursor='copy';
+        } else {
+          marqueCut();
+        }
+        return;
       } else {
         marqueRect=null;marqueSnap=null;drawMarque();
         document.getElementById('statusObj').textContent='';
@@ -2190,14 +2200,18 @@ document.addEventListener('mouseup',()=>{
   if(marqueDragging){
     marqueDragging=false; HC.style.cursor='crosshair';
     if(marqueDragCopy){
-      // Ctrl+드래그 완료: 원본 위치에 복사본 남기기
+      // Ctrl+드래그 완료: 원본 픽셀을 원래 위치에 다시 그려넣기
       const orig=marqueDragCopy; marqueDragCopy=null;
       const tmp=document.createElement('canvas');
-      tmp.width=orig.w; tmp.height=orig.h;
-      tmp.getContext('2d').putImageData(orig.snap,0,0);
+      tmp.width=CW; tmp.height=CH;
+      const tc=tmp.getContext('2d');
+      // 현재 marqueSnap이 이동한 위치에 있으므로, 원본 위치에 복원
+      tc.putImageData(orig.snap, orig.x, orig.y);
       const img=new Image();
       img.onload=()=>{
-        objs.push({id:mkId(),type:'image',img,x:orig.x,y:orig.y,w:orig.w,h:orig.h,alpha:1});
+        // 원본 복원 이미지를 기존 marqueCommit 이미지 아래(같은 위치)에 삽입
+        // marqueCommit 후 확정 시 반영됨
+        objs.push({id:mkId(),type:'image',img,x:0,y:0,w:CW,h:CH,alpha:1});
         saveH(); renderAll();
       };
       img.src=tmp.toDataURL();
