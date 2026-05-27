@@ -380,7 +380,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 0.9.8 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 0.9.9 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -1191,6 +1191,8 @@ let resC=false,resDir='',resSX=0,resSY=0,resOW=0,resOH=0;
 let marqueRect=null;      // {x,y,w,h} 선택 영역 (정규화 전)
 let marqueIds=[];         // (미사용: 픽셀 방식으로 전환)
 let marqueDragging=false; // 선택 픽셀 이동 중
+let marquePendingCut=false; // 드래그 시작 전 cut 대기 상태
+let marquePendingCopy=false; // Ctrl/Cmd 복사 모드
 let marqueDragLX=0,marqueDragLY=0;
 let marqueDrawing=false;  // 드래그로 영역 그리는 중
 let marqueSX=0,marqueSY=0;
@@ -1727,7 +1729,7 @@ function pasteClipboard(){
 }
 function duplicateSelected(){copySelected();pasteClipboard();}
 // ── 픽셀 영역 잘라내기: flatten → 선택 영역 픽셀 추출 → 원본 지우기
-function marqueCut(){
+function marqueCut(isCopy=false){
   if(!marqueRect) return;
   const rx=Math.min(marqueRect.x,marqueRect.x+marqueRect.w);
   const ry=Math.min(marqueRect.y,marqueRect.y+marqueRect.h);
@@ -1738,7 +1740,6 @@ function marqueCut(){
   if(sw<=0||sh<=0){marqueRect=null;drawMarque();return;}
 
   // 1) 선택 영역과 겹치는 image/stroke만 픽셀 처리
-  //    겹치지 않는 image/stroke + text/shape 전부 → 객체로 보존
   const pixelObjs=objs.filter(o=>{
     if(o.type==='text'||o.type==='shape') return false;
     const b=getBounds(o);
@@ -1758,7 +1759,7 @@ function marqueCut(){
   // 2) 선택 영역만 구멍 뚫기
   fc.clearRect(sx,sy,sw,sh);
 
-  // 3) 구멍 뚫린 픽셀 → image 객체로 저장 (겹치는 영역만 포함)
+  // 3) 구멍 뚫린 픽셀 → image 객체로 저장
   const holeCanvas=document.createElement('canvas');
   holeCanvas.width=CW;holeCanvas.height=CH;
   holeCanvas.getContext('2d').drawImage(full,0,0);
@@ -1766,7 +1767,6 @@ function marqueCut(){
   const holeImg=new Image();holeImg.src=holeDataURL;
   holeImg.onload=()=>{
     const baseObj={id:mkId(),type:'image',img:holeImg,x:0,y:0,w:CW,h:CH,alpha:1};
-    // pixelObjs 중 첫 번째 인덱스 위치에 baseObj 삽입 (레이어 순서 유지)
     const firstPixelIdx=objs.findIndex(o=>pixelObjs.includes(o));
     const newObjs=[...keepObjs];
     const insertAt=firstPixelIdx>=0 ? Math.min(firstPixelIdx, newObjs.length) : 0;
@@ -1774,9 +1774,17 @@ function marqueCut(){
     objs=newObjs;
     marqueCommitted=true;
     marqueRect={x:sx,y:sy,w:sw,h:sh};
+    // isCopy=true: 잘라낸 후 원본 복원용 백업 설정 (Ctrl/Cmd+드래그 복사 모드)
+    if(isCopy){
+      marqueDragCopy={snap:marqueSnap,x:sx,y:sy,w:sw,h:sh};
+      HC.style.cursor='copy';
+    }
     saveH();
     drawMarque();renderAll();
-    document.getElementById('statusObj').textContent=`영역 선택: ${sw}×${sh} px — 드래그로 이동 · 클릭으로 확정 · Delete 삭제 · Esc 취소`;
+    document.getElementById('statusObj').textContent=
+      isCopy
+        ? `복사 이동: ${sw}×${sh} px — 드래그로 이동 · 클릭으로 확정 · Esc 취소`
+        : `영역 선택: ${sw}×${sh} px — 드래그로 이동 · 클릭으로 확정 · Delete 삭제 · Esc 취소`;
   };
 }
 
@@ -2055,16 +2063,12 @@ function onDown(e){
       const ry2=Math.min(marqueRect.y,marqueRect.y+marqueRect.h);
       const rw2=Math.abs(marqueRect.w),rh2=Math.abs(marqueRect.h);
       if(xi>=rx2&&xi<=rx2+rw2&&yi>=ry2&&yi<=ry2+rh2){
-        if(e.ctrlKey||e.metaKey){
-          // Ctrl+클릭: 원본 보존하며 복사 후 드래그 준비
-          marqueCopy();
-          marqueCut(); // snap 만들어서 드래그 가능하게
-          marqueDragCopy={snap:marqueSnap,x:marqueSnapX,y:marqueSnapY,
-                         w:marqueSnapW,h:marqueSnapH}; // 원본 복원용 백업
-          HC.style.cursor='copy';
-        } else {
-          marqueCut();
-        }
+        // 클릭 시 바로 marqueCut 하지 않고 드래그 시작 대기
+        // 실제 드래그(onMove)에서 처음 움직일 때 marqueCut 호출
+        marqueDragging=true; marqueDragLX=x; marqueDragLY=y;
+        marquePendingCopy=!!(e.ctrlKey||e.metaKey); // Ctrl/Cmd 복사 모드
+        marquePendingCut=true; // 아직 cut 안 함 플래그
+        HC.style.cursor=marquePendingCopy?'copy':'move';
         return;
       } else {
         marqueRect=null;marqueSnap=null;drawMarque();
@@ -2116,7 +2120,25 @@ function onMove(e){
     marqueDragLX=x;marqueDragLY=y;
     marqueSnapX+=dx;marqueSnapY+=dy;
     if(marqueRect){marqueRect.x+=dx;marqueRect.y+=dy;}
+    HC.style.cursor=marquePendingCopy?'copy':'move';
     drawMarque();
+    return;
+  }
+  // ── marque: pendingCut 상태에서 실제 드래그 시작 시 cut 실행
+  if(marqueDragging&&marquePendingCut){
+    const dx=x-marqueDragLX,dy=y-marqueDragLY;
+    if(Math.abs(dx)>2||Math.abs(dy)>2){
+      // 실제 드래그 시작 → cut 실행
+      // Ctrl/Cmd 키 상태를 실시간으로 재확인
+      const isCopy=e.ctrlKey||e.metaKey||marquePendingCopy;
+      marquePendingCut=false;
+      marquePendingCopy=false;
+      marqueCut(isCopy);
+      marqueDragLX=x; marqueDragLY=y;
+    } else {
+      // 아직 드래그 시작 안 함 - Ctrl/Cmd 키 상태로 커서만 업데이트
+      HC.style.cursor=(e.ctrlKey||e.metaKey||marquePendingCopy)?'copy':'move';
+    }
     return;
   }
   // ── marque: 커서
@@ -2199,6 +2221,12 @@ document.addEventListener('mouseup',()=>{
   if(dragging){ dragging=false; HC.style.cursor='default'; saveH(); return; }
   if(marqueDragging){
     marqueDragging=false; HC.style.cursor='crosshair';
+    // pendingCut 상태에서 mouseup: 실제 드래그 없이 클릭만 함
+    // → cut하지 않고 선택 상태 유지 (Ctrl+C로 복사 가능)
+    if(marquePendingCut){
+      marquePendingCut=false; marquePendingCopy=false;
+      return; // saveH 없이 그냥 선택 상태 유지
+    }
     if(marqueDragCopy){
       // Ctrl+드래그 완료: 원본 픽셀을 원래 위치에 다시 그려넣기
       const orig=marqueDragCopy; marqueDragCopy=null;
@@ -2769,9 +2797,15 @@ function showUpdateBanner(sw){
   document.getElementById('updateBanner').classList.remove('hidden');
 }
 function applyUpdate(){
-  _waitingForUpdate=true; // 사용자가 명시적으로 업데이트 선택
-  if(_pendingSW){
-    _pendingSW.postMessage('skipWaiting');
+  _waitingForUpdate=true;
+  const sw=_pendingSW||(_swReg&&_swReg.waiting);
+  if(sw){
+    sw.postMessage('skipWaiting');
+    // postMessage 후 SW 활성화까지 최대 3초 대기 후 강제 새로고침
+    setTimeout(()=>window.location.reload(), 500);
+  } else {
+    // waiting SW 없으면 바로 새로고침 (네트워크 우선이므로 최신 파일 로드)
+    window.location.reload();
   }
   document.getElementById('updateBanner').classList.add('hidden');
 }
