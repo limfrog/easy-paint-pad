@@ -2,6 +2,17 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+  <!-- Content Security Policy: XSS 및 인젝션 방어 -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+    font-src 'self' https://fonts.gstatic.com;
+    img-src 'self' data: blob:;
+    connect-src 'self';
+    object-src 'none';
+    base-uri 'self';
+  ">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#0078d4">
 <meta name="description" content="브라우저에서 바로 사용하는 그림판 앱">
@@ -2004,9 +2015,20 @@ function refreshList(){
     if(o.type==='text')lbl=`"${(o.text||'').replace(/\n/g,' ').slice(0,10)}"`;
     else if(o.type==='shape')lbl=o.shape;
     else if(o.type==='stroke')lbl=o.eraser?'지우개':o.strokeWidth+'px';
-    // 텍스트 항목은 편집 힌트 표시
-    const editHint = o.type==='text' ? ' title="더블클릭으로 편집"' : '';
-    div.innerHTML=`<span class="obj-icon">${icons[o.type]||'•'}</span><span class="obj-name"${editHint}>${names[o.type]} ${lbl}</span><span class="obj-del" data-id="${o.id}">✕</span>`;
+    // 텍스트 항목은 편집 힌트 표시 (nameSpan.title로 처리)
+    // XSS 방어: 사용자 입력(lbl)은 textContent로 설정
+    const iconSpan=document.createElement('span');
+    iconSpan.className='obj-icon';
+    iconSpan.textContent=icons[o.type]||'•';
+    const nameSpan=document.createElement('span');
+    nameSpan.className='obj-name';
+    if(o.type==='text') nameSpan.title='더블클릭으로 편집';
+    nameSpan.textContent=`${names[o.type]} ${lbl}`;
+    const delSpan=document.createElement('span');
+    delSpan.className='obj-del';
+    delSpan.dataset.id=o.id;
+    delSpan.textContent='✕';
+    div.appendChild(iconSpan);div.appendChild(nameSpan);div.appendChild(delSpan);
     div.addEventListener('click',()=>selObj(o.id));
     // 텍스트 객체: 더블클릭으로 편집 모드 진입
     if(o.type==='text'){
@@ -2828,17 +2850,14 @@ function savePDF(){
   function doSavePDF(){
     const {jsPDF}=window.jspdf;
     // A4: portrait=595.28×841.89pt, landscape=841.89×595.28pt
-    const a4Portrait={w:595.28,h:841.89};
-    const ratio=CW/CH;
-    // 캔버스 비율에 따라 portrait/landscape 선택
-    const orientation=ratio>=1?'landscape':'portrait';
-    const pageW=orientation==='landscape'?a4Portrait.h:a4Portrait.w;
-    const pageH=orientation==='landscape'?a4Portrait.w:a4Portrait.h;
-    // 페이지 안에 꽉 차게 (비율 유지, 여백 최소화)
+    // 항상 portrait A4 (595.28×841.89pt)
+    const pageW=595.28, pageH=841.89;
+    // 캔버스를 A4 너비에 맞게 스케일 (비율 유지)
     const scale=Math.min(pageW/CW, pageH/CH);
     const imgW=CW*scale, imgH=CH*scale;
-    const offX=(pageW-imgW)/2, offY=(pageH-imgH)/2;
-    const doc=new jsPDF({orientation, unit:'pt', format:'a4'});
+    // 좌측 상단 배치
+    const offX=0, offY=0;
+    const doc=new jsPDF({orientation:'portrait', unit:'pt', format:'a4'});
     const dataUrl=flatten().toDataURL('image/png');
     doc.addImage(dataUrl,'PNG',offX,offY,imgW,imgH);
     const name=(curFile||'untitled').replace(/\.[^.]+$/,'')||'untitled';
@@ -2848,6 +2867,7 @@ function savePDF(){
   else {
     const s=document.createElement('script');
     s.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.crossOrigin='anonymous';
     s.onload=()=>doSavePDF();
     s.onerror=()=>alert('PDF 라이브러리를 불러올 수 없습니다. 인터넷 연결을 확인해주세요.');
     document.head.appendChild(s);
