@@ -391,7 +391,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 0.9.9 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.0 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -1916,22 +1916,25 @@ function marquePixelPaste(){
   if(!pixelClip) return false;
   // 현재 marqueSnap이 있으면 먼저 확정
   if(marqueSnap) marqueCommit();
+  marqueDragCopy=null; // 복사 드래그 상태 초기화
   const {snap,w,h}=pixelClip;
-  // 원본 위치 기준, 약간 오프셋
-  const px=Math.min(marqueSnapX+20, CW-w);
-  const py=Math.min(marqueSnapY+20, CH-h);
-  // snap 상태로 띄우기 (이동 가능)
+  // 캔버스 중앙에 배치
+  const px=Math.max(0, Math.round((CW-w)/2));
+  const py=Math.max(0, Math.round((CH-h)/2));
   marqueSnap=snap;
-  marqueSnapX=Math.max(0,px);
-  marqueSnapY=Math.max(0,py);
-  marqueSnapW=w;
-  marqueSnapH=h;
+  marqueSnapX=px; marqueSnapY=py;
+  marqueSnapW=w;  marqueSnapH=h;
   marqueCommitted=true;
-  marqueRect={x:marqueSnapX,y:marqueSnapY,w,h};
-  setTool('marque');
+  marqueRect={x:px,y:py,w,h};
+  // setTool 대신 직접 전환 (marqueCommit 재호출 방지)
+  tool='marque';
+  document.querySelectorAll('[id^="tool-"]').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('#tool-marque').forEach(b=>b.classList.add('active'));
+  HC.style.cursor='crosshair';
+  document.getElementById('statusTool').textContent='도구: 영역 선택';
   drawMarque();renderAll();
   document.getElementById('statusObj').textContent=
-    `붙여넣기: ${w}×${h} px — 드래그로 이동 · 클릭으로 확정`;
+    `붙여넣기: ${w}×${h} px — 드래그로 이동 · 클릭으로 확정 · Esc 취소`;
   return true;
 }
 
@@ -2602,7 +2605,7 @@ document.addEventListener('keydown',e=>{
     if(e.key==='p'){e.preventDefault();printCanvas();}
     if(e.key==='o'){e.preventDefault();document.getElementById('openInput').click();}
     if(e.key==='c'){e.preventDefault();if(tool==='marque'&&(marqueRect||marqueSnap)){marqueCopy();}else copySelected();}
-    if(e.key==='v'){if(pixelClip&&tool==='marque'){e.preventDefault();marquePixelPaste();}else if(clip){e.preventDefault();pasteClipboard();}/* 이미지 클립보드는 paste 이벤트가 처리 */}
+    if(e.key==='v'){e.preventDefault();if(pixelClip){marquePixelPaste();}else if(clip){pasteClipboard();}/* 이미지 클립보드는 paste 이벤트가 처리 */}
     if(e.key==='x'){e.preventDefault();if(tool==='marque'&&(marqueRect||marqueSnap)){marqueCut2();}}
     if(e.key==='d'){e.preventDefault();duplicateSelected();}
     if(e.key==='a'){e.preventDefault();selectAll();}                  // Ctrl+A 전체선택
