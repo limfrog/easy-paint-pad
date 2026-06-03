@@ -1739,6 +1739,18 @@ function pasteClipboard(){
   objs.push(c);saveH();selObj(c.id);
 }
 function duplicateSelected(){copySelected();pasteClipboard();}
+function duplicateInPlace(){
+  // Ctrl+드래그용: 오프셋 없이 같은 위치에 복제
+  if(!selId)return;
+  const o=objs.find(x=>x.id===selId);
+  if(!o)return;
+  const c=JSON.parse(JSON.stringify(o));
+  c.id=mkId();
+  if(c.type==='image'&&o.img) c.img=o.img; // img 객체 공유
+  objs.push(c);
+  selId=c.id; // 새 객체를 선택
+  refreshList();
+}
 // ── 픽셀 영역 잘라내기: flatten → 선택 영역 픽셀 추출 → 원본 지우기
 function marqueCut(isCopy=false){
   if(!marqueRect) return;
@@ -2109,7 +2121,16 @@ function onDown(e){
 
   if(tool==='select2'){
     const hit=hitTest(xi,yi);
-    if(hit){selObj(hit.id);dragging=true;dragLX=x;dragLY=y;HC.style.cursor='move';}
+    if(hit){
+      selObj(hit.id);
+      if(e.ctrlKey||e.metaKey){
+        // Ctrl/Cmd+드래그: 원본은 그대로 두고 복제본을 드래그
+        duplicateInPlace();
+        HC.style.cursor='copy';
+      }
+      dragging=true;dragLX=x;dragLY=y;
+      if(!(e.ctrlKey||e.metaKey)) HC.style.cursor='move';
+    }
     else{selId=null;clearSel();document.getElementById('statusObj').textContent='';refreshList();}
     return;
   }
