@@ -1196,6 +1196,7 @@ let drawing=false,dSX=0,dSY=0,actStroke=null,actShape=null,actTed=null;
 let editingId=null; // 현재 편집 중인 텍스트 객체 id (렌더에서 숨김 처리)
 let isDirty=false; // 미저장 변경사항 추적
 let dragging=false,dragLX=0,dragLY=0;
+let lastClickX=0,lastClickY=0; // 마지막 클릭 위치 (붙여넣기 기준)
 let resC=false,resDir='',resSX=0,resSY=0,resOW=0,resOH=0;
 
 // ── 영역 선택(marque) 상태
@@ -1872,8 +1873,15 @@ function marqueCopy(){
     } else {
       // 아직 잘리기 전 → 픽셀(image/stroke)만 읽기 (원본 보존)
       const full=flattenPixels();
+      // DPR 적용: flattenPixels는 논리 픽셀 기준으로 렌더링하므로 그대로 사용
       csw=Math.min(sw,CW-sx); csh=Math.min(sh,CH-sy);
-      snap=full.getContext('2d').getImageData(sx,sy,csw,csh);
+      if(csw<=0||csh<=0) return false;
+      try {
+        snap=full.getContext('2d').getImageData(sx,sy,csw,csh);
+      } catch(err) {
+        console.warn('getImageData 오류:', err);
+        return false;
+      }
     }
     pixelClip={snap, w:csw, h:csh};
     marqueSnapX=sx; marqueSnapY=sy;
@@ -1936,19 +1944,35 @@ function marqueCut2(){
 // ── 픽셀 붙여넣기 → marqueSnap으로 띄워서 이동 가능한 상태로
 function marquePixelPaste(){
   if(!pixelClip) return false;
-  // 현재 marqueSnap이 있으면 먼저 확정
-  if(marqueSnap) marqueCommit();
   marqueDragCopy=null; // 복사 드래그 상태 초기화
-  const {snap,w,h}=pixelClip;
-  // 캔버스 중앙에 배치
-  const px=Math.max(0, Math.round((CW-w)/2));
-  const py=Math.max(0, Math.round((CH-h)/2));
+  // marqueSnap이 있으면 원위치에 복원 후 snap 해제 (잘라내기 방지)
+  if(marqueSnap&&marqueCommitted){
+    // snap을 원래 위치에 되돌리기
+    const tmpC=document.createElement('canvas');
+    tmpC.width=CW;tmpC.height=CH;
+    tmpC.getContext('2d').putImageData(marqueSnap,marqueSnapX,marqueSnapY);
+    const restoreImg=new Image();
+    restoreImg.onload=()=>{
+      objs.push({id:mkId(),type:'image',img:restoreImg,x:0,y:0,w:CW,h:CH,alpha:1});
+      marqueSnap=null;marqueRect=null;marqueCommitted=false;
+      _doPixelPaste(pixelClip);
+    };
+    restoreImg.src=tmpC.toDataURL();
+    return true;
+  }
+  _doPixelPaste(pixelClip);
+  return true;
+}
+function _doPixelPaste(clip){
+  const {snap, w, h}=clip;
+  // 마지막 클릭 위치를 중심으로 배치 (캔버스 범위 내로 제한)
+  const px=Math.max(0, Math.min(CW-w, Math.round(lastClickX-w/2)));
+  const py=Math.max(0, Math.min(CH-h, Math.round(lastClickY-h/2)));
   marqueSnap=snap;
   marqueSnapX=px; marqueSnapY=py;
   marqueSnapW=w;  marqueSnapH=h;
   marqueCommitted=true;
   marqueRect={x:px,y:py,w,h};
-  // setTool 대신 직접 전환 (marqueCommit 재호출 방지)
   tool='marque';
   document.querySelectorAll('[id^="tool-"]').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('#tool-marque').forEach(b=>b.classList.add('active'));
@@ -1957,7 +1981,6 @@ function marquePixelPaste(){
   drawMarque();renderAll();
   document.getElementById('statusObj').textContent=
     `붙여넣기: ${w}×${h} px — 드래그로 이동 · 클릭으로 확정 · Esc 취소`;
-  return true;
 }
 
 function selectAll(){
@@ -2080,6 +2103,7 @@ HC.addEventListener('dblclick',onDbl);
 
 function onDown(e){
   const{x,y}=getPos(e);const xi=Math.round(x),yi=Math.round(y);
+  lastClickX=xi; lastClickY=yi; // 클릭 위치 기록
 
   // ── 텍스트 도구: 캔버스 클릭 시 새 텍스트 에디터 열기
   if(tool==='text'){
@@ -2433,6 +2457,14 @@ function flatten(){
   const tc=tmp.getContext('2d');tc.fillStyle='#fff';tc.fillRect(0,0,CW,CH);
   objs.forEach(o=>drawO(tc,o,false));return tmp;
 }
+// 픽셀 편집용: image/stroke 타입만 렌더 (text/shape 제외 → 겹침 방지)
+function flattenPixels(){
+  const tmp=document.createElement('canvas');tmp.width=CW;tmp.height=CH;
+  const tc=tmp.getContext('2d');tc.fillStyle='#fff';tc.fillRect(0,0,CW,CH);
+  objs.filter(o=>o.type==='image'||o.type==='stroke')
+      .forEach(o=>drawO(tc,o,false));
+  return tmp;
+}
 let curFile=null;
 function newFile(){
   if(isDirty){
@@ -2628,20 +2660,29 @@ document.addEventListener('keydown',e=>{
   }
   const mod=e.metaKey||e.ctrlKey;
   if(mod){
-    if(e.key==='z'){e.preventDefault();e.shiftKey?redo():undo();}
-    if(e.key==='y'){e.preventDefault();redo();}
-    if(e.key==='e'){e.preventDefault();saveEPP();}                       // Ctrl+Y (Windows redo)
-    if(e.key==='s'){e.preventDefault();e.shiftKey?openSaveAs():saveFile();}
-    if(e.key==='n'){e.preventDefault();newFile();}
-    if(e.key==='p'){e.preventDefault();printCanvas();}
-    if(e.key==='o'){e.preventDefault();document.getElementById('openInput').click();}
-    if(e.key==='c'){e.preventDefault();if(tool==='marque'&&(marqueRect||marqueSnap)){marqueCopy();}else copySelected();}
-    if(e.key==='v'){e.preventDefault();if(pixelClip){marquePixelPaste();}else if(clip){pasteClipboard();}/* 이미지 클립보드는 paste 이벤트가 처리 */}
-    if(e.key==='x'){e.preventDefault();if(tool==='marque'&&(marqueRect||marqueSnap)){marqueCut2();}}
-    if(e.key==='d'){e.preventDefault();duplicateSelected();}
-    if(e.key==='a'){e.preventDefault();selectAll();}                  // Ctrl+A 전체선택
-    if(e.key===']'){e.preventDefault();moveLayerUp();}
-    if(e.key==='['){e.preventDefault();moveLayerDown();}
+    const key=e.key.toLowerCase();
+    if(key==='z'){e.preventDefault();e.shiftKey?redo():undo();}
+    if(key==='y'){e.preventDefault();redo();}
+    if(key==='e'){e.preventDefault();saveEPP();}
+    if(key==='s'){e.preventDefault();e.shiftKey?openSaveAs():saveFile();}
+    if(key==='n'){e.preventDefault();newFile();}
+    if(key==='p'){e.preventDefault();printCanvas();}
+    if(key==='o'){e.preventDefault();document.getElementById('openInput').click();}
+    if(key==='c'){
+      e.preventDefault();
+      if(tool==='marque'&&(marqueRect||marqueSnap||marqueDrawing)){
+        if(marqueDrawing){marqueDrawing=false;}
+        marqueCopy();
+      } else if(tool!=='marque'){
+        copySelected();
+      }
+    }
+    if(key==='v'){e.preventDefault();if(pixelClip){marquePixelPaste();}else if(clip){pasteClipboard();}}
+    if(key==='x'){e.preventDefault();if(tool==='marque'&&(marqueRect||marqueSnap)){marqueCut2();}}
+    if(key==='d'){e.preventDefault();duplicateSelected();}
+    if(key==='a'){e.preventDefault();selectAll();}
+    if(key===']'){e.preventDefault();moveLayerUp();}
+    if(key==='['){e.preventDefault();moveLayerDown();}
   }else{
     if(e.key==='Delete'||e.key==='Backspace'){
       if(marqueSnap){
@@ -2775,8 +2816,8 @@ document.addEventListener('paste', e=>{
     }
   }
   // 이미지가 없으면 픽셀 클립보드 붙여넣기 시도
-  if(pixelClip&&tool==='marque') marquePixelPaste();
-  else if(clip) pasteClipboard();
+  // keydown Ctrl+V에서 이미 처리됐으므로 여기선 외부 이미지 클립보드만 처리
+  if(clip) pasteClipboard();
 });
 
 // ════════════ 저장 확인 다이얼로그 ════════════
