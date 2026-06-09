@@ -391,7 +391,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.01 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.01.1 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -1730,7 +1730,15 @@ function moveO(o,dx,dy){
 }
 
 // ════════════ COPY / PASTE / DUPLICATE / LAYER ════════════
-function copySelected(){if(!selId)return;const o=objs.find(x=>x.id===selId);if(o){clip=JSON.parse(JSON.stringify(o));if(clip.type==='image')delete clip.img;}}
+function copySelected(){
+  if(!selId)return;
+  const o=objs.find(x=>x.id===selId);
+  if(o){
+    clip=JSON.parse(JSON.stringify(o));
+    if(clip.type==='image')delete clip.img;
+    pixelClip=null; // 픽셀 클립 초기화 (객체 복사 우선)
+  }
+}
 function pasteClipboard(){
   if(!clip)return;
   const c=JSON.parse(JSON.stringify(clip));c.id=mkId();
@@ -1884,6 +1892,7 @@ function marqueCopy(){
       }
     }
     pixelClip={snap, w:csw, h:csh};
+    clip=null; // 객체 클립 초기화 (픽셀 복사 우선)
     marqueSnapX=sx; marqueSnapY=sy;
     document.getElementById('statusObj').textContent=
       `복사됨: ${pixelClip.w}×${pixelClip.h} px — Ctrl+V로 붙여넣기`;
@@ -2337,7 +2346,7 @@ document.addEventListener('mouseup',()=>{
     }
     drawMarque();
     document.getElementById('statusObj').textContent=
-      `영역 선택: ${Math.round(rw)}×${Math.round(rh)} px — 드래그로 이동 · Delete 삭제 · Ctrl+C 복사 · Ctrl+X 잘라내기`;
+      `영역 선택: ${Math.round(rw)}×${Math.round(rh)} px — 드래그로 이동 · Ctrl+C 복사 · Ctrl+X 잘라내기 · Delete 삭제`;
     return;
   }
   // 캔버스 핸들 리사이즈 완료
@@ -2685,16 +2694,33 @@ document.addEventListener('keydown',e=>{
     if(key==='['){e.preventDefault();moveLayerDown();}
   }else{
     if(e.key==='Delete'||e.key==='Backspace'){
-      if(marqueSnap){
-        marqueCancel(false); // snap 버림 (삭제)
+      if(tool==='marque'){
+        if(marqueSnap){
+          marqueCancel(false); // 이동 중인 snap 버림 (삭제)
+        } else if(marqueRect){
+          // 선택 영역 바로 삭제 (클릭/이동 없이)
+          marqueCut(false);
+          // cut 완료 후 snap을 버림 (구멍만 남김)
+          const waitAndDelete=()=>{
+            if(marqueSnap){ marqueCancel(false); }
+            else if(marqueCommitted){ setTimeout(waitAndDelete,50); }
+          };
+          setTimeout(waitAndDelete,100);
+        } else deleteSelected();
       } else deleteSelected();
     }
     if(e.key==='Escape'){
-      if(marqueSnap){
-        marqueCancel(true); // snap 원위치 후 확정
+      if(tool==='marque'){
+        if(marqueSnap){
+          marqueCancel(true);
+        } else {
+          selId=null;clearSel();
+          marqueRect=null;marqueIds=[];drawMarque();
+          document.getElementById('statusObj').textContent='';
+          refreshList();
+        }
       } else {
         selId=null;clearSel();
-        marqueRect=null;marqueIds=[];drawMarque();
         document.getElementById('statusObj').textContent='';
         refreshList();
       }
