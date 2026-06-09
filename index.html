@@ -391,7 +391,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.01.1 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.01.2 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -1823,16 +1823,21 @@ function marqueCut(isCopy=false){
 // ── 선택 픽셀을 현재 위치에 붙여넣기(확정)
 function marqueCommit(){
   if(!marqueSnap) return;
-  // snap을 image 객체로 추가
+  // 비동기 onload 전에 위치값 즉시 캡처 (나중에 변경되어도 안전)
+  const snapData=marqueSnap;
+  const snapX=marqueSnapX, snapY=marqueSnapY;
+  const snapW=marqueSnapW, snapH=marqueSnapH;
+  // 즉시 상태 초기화 (onload 전에)
+  marqueSnap=null; marqueRect=null; marqueCommitted=false;
+  drawMarque();
+
   const tmp=document.createElement('canvas');
-  tmp.width=marqueSnapW;tmp.height=marqueSnapH;
-  tmp.getContext('2d').putImageData(marqueSnap,0,0);
+  tmp.width=snapW; tmp.height=snapH;
+  tmp.getContext('2d').putImageData(snapData,0,0);
   const img=new Image();
   img.onload=()=>{
-    objs.push({id:mkId(),type:'image',img,x:marqueSnapX,y:marqueSnapY,w:marqueSnapW,h:marqueSnapH,alpha:1});
-    saveH();
-    marqueSnap=null;marqueRect=null;marqueCommitted=false;
-    drawMarque();renderAll();
+    objs.push({id:mkId(),type:'image',img,x:snapX,y:snapY,w:snapW,h:snapH,alpha:1});
+    saveH(); renderAll();
     document.getElementById('statusObj').textContent='';
   };
   img.src=tmp.toDataURL();
@@ -1841,21 +1846,22 @@ function marqueCommit(){
 // ── 선택 취소 (Delete: snap 버림 / Esc: snap 원위치 후 확정)
 function marqueCancel(restore){
   if(restore&&marqueSnap){
-    // snap을 원래 위치에 되돌리기
+    const snapData=marqueSnap;
+    const snapX=marqueSnapX, snapY=marqueSnapY;
+    const snapW=marqueSnapW, snapH=marqueSnapH;
+    marqueSnap=null;marqueRect=null;marqueCommitted=false;
+    drawMarque();
     const tmp=document.createElement('canvas');
-    tmp.width=marqueSnapW;tmp.height=marqueSnapH;
-    tmp.getContext('2d').putImageData(marqueSnap,0,0);
+    tmp.width=snapW; tmp.height=snapH;
+    tmp.getContext('2d').putImageData(snapData,0,0);
     const img=new Image();
     img.onload=()=>{
-      objs.push({id:mkId(),type:'image',img,x:marqueSnapX,y:marqueSnapY,w:marqueSnapW,h:marqueSnapH,alpha:1});
-      saveH();
-      marqueSnap=null;marqueRect=null;marqueCommitted=false;
-      drawMarque();renderAll();
+      objs.push({id:mkId(),type:'image',img,x:snapX,y:snapY,w:snapW,h:snapH,alpha:1});
+      saveH(); renderAll();
       document.getElementById('statusObj').textContent='';
     };
     img.src=tmp.toDataURL();
   } else {
-    // 그냥 버림 (이미 원본이 지워진 상태)
     marqueSnap=null;marqueRect=null;marqueCommitted=false;
     drawMarque();
     document.getElementById('statusObj').textContent='';
