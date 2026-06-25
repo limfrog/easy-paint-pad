@@ -424,7 +424,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.1 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.11 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -1942,12 +1942,8 @@ async function tryPasteFromSystemClipboard(){
         img.onload=resolve; img.onerror=reject; img.src=url;
       });
       URL.revokeObjectURL(url);
+      // 원본 크기 그대로 붙여넣기 (축소하지 않음)
       let w=img.width, h=img.height;
-      const maxW=CW*0.9, maxH=CH*0.9;
-      if(w>maxW||h>maxH){
-        const scale=Math.min(maxW/w,maxH/h);
-        w=Math.round(w*scale); h=Math.round(h*scale);
-      }
       if(tool==='marque'){
         const tmp=document.createElement('canvas');
         tmp.width=w; tmp.height=h;
@@ -2211,11 +2207,28 @@ function refreshList(){
 }
 
 // ════════════ MOUSE ════════════
-function getPos(e){const r=HC.getBoundingClientRect();return{x:(e.clientX-r.left)/zoom,y:(e.clientY-r.top)/zoom};}
+function getPos(e){
+  const r=HC.getBoundingClientRect();
+  let x=(e.clientX-r.left)/zoom, y=(e.clientY-r.top)/zoom;
+  // 캔버스 영역 밖이면 가장자리로 고정 (영역선택 등 드래그가 끊기지 않도록)
+  x=Math.max(0,Math.min(CW,x));
+  y=Math.max(0,Math.min(CH,y));
+  return{x,y};
+}
 HC.addEventListener('mousedown',onDown);
 HC.addEventListener('mousemove',onMove);
 HC.addEventListener('mouseup',onUp);
 HC.addEventListener('dblclick',onDbl);
+// 마우스가 캔버스 밖으로 나가도 드래그 중인 동작(영역선택 등)이 계속되도록
+// document 레벨에서도 동일 핸들러 등록 (좌표는 getPos에서 캔버스 범위로 clamp됨)
+// 영역선택 드래그 중 마우스가 캔버스 밖으로 나가도 좌표가 계속 추적되도록
+// (mouseup 완료 처리는 기존 document.mouseup 핸들러가 이미 document 레벨이라 문제없음)
+document.addEventListener('mousemove',e=>{
+  if(!marqueDrawing) return;
+  const r=HC.getBoundingClientRect();
+  const inside=e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;
+  if(!inside) onMove(e);
+});
 // contextmenu handled below
 
 function onDown(e){
@@ -2940,12 +2953,8 @@ document.addEventListener('paste', e=>{
       rd.onload=ev=>{
         const img=new Image();
         img.onload=()=>{
+          // 원본 크기 그대로 붙여넣기 (축소하지 않음)
           let w=img.width, h=img.height;
-          const maxW=CW*0.9, maxH=CH*0.9;
-          if(w>maxW||h>maxH){
-            const scale=Math.min(maxW/w,maxH/h);
-            w=Math.round(w*scale);h=Math.round(h*scale);
-          }
           if(tool==='marque'){
             // 영역선택 도구일 때: marqueSnap으로 띄워서 이동 가능하게
             const tmp=document.createElement('canvas');
