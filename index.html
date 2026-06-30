@@ -277,6 +277,21 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 .tooltip-key{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);
   border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600;font-family:monospace;}
 /* 업데이트 알림 배너 */
+.recent-file-item{display:flex;align-items:center;gap:10px;padding:9px 10px;
+  border:1px solid var(--border);border-radius:8px;cursor:pointer;
+  transition:background .12s;}
+.recent-file-item:hover{background:var(--hover);}
+.recent-file-icon{width:36px;height:36px;border-radius:7px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--ribbon);border:1px solid var(--borderl);font-size:16px;}
+.recent-file-info{flex:1;min-width:0;}
+.recent-file-name{font-size:12px;font-weight:600;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.recent-file-meta{font-size:10px;color:var(--muted);margin-top:2px;}
+.recent-file-del{background:transparent;border:none;color:var(--muted);
+  cursor:pointer;font-size:14px;padding:4px 6px;border-radius:4px;flex-shrink:0;}
+.recent-file-del:hover{background:rgba(220,53,69,.15);color:#dc3545;}
+.recent-file-empty{text-align:center;padding:30px 10px;color:var(--muted);font-size:12px;line-height:1.6;}
 .update-banner{
   position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
   background:#1a1a1a;color:#fff;border-radius:12px;
@@ -381,6 +396,22 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- Custom Tooltip -->
 <div class="tooltip" id="appTooltip"><span id="ttLabel"></span><span class="tooltip-key" id="ttKey" style="display:none"></span></div>
 
+<!-- 최근 파일 모달 -->
+<div class="modal-overlay hidden" id="recentFilesModal">
+  <div class="modal" style="width:420px;max-width:92vw">
+    <div class="modal-head">🕓 최근 작업 파일
+      <button class="modal-xbtn" onclick="closeRecentFiles()">✕</button>
+    </div>
+    <div class="modal-body" style="padding:8px 14px 14px;max-height:55vh;overflow-y:auto;gap:6px" id="recentFilesList">
+      <!-- JS로 채워짐 -->
+    </div>
+    <div class="modal-foot" style="justify-content:space-between">
+      <button class="btn-cancel" onclick="clearRecentFiles()" style="font-size:11px">전체 삭제</button>
+      <button class="btn-ok" onclick="closeRecentFiles()">닫기</button>
+    </div>
+  </div>
+</div>
+
 <!-- 문서화 모달 -->
 <div class="modal-overlay hidden" id="documentizeModal">
   <div class="modal" style="width:420px">
@@ -424,7 +455,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.11 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.13 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -559,8 +590,9 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <div class="ribbon-panel active" id="tab-file">
   <div class="rs"><div class="rs-body">
     <button class="ib" data-tip="새 파일" data-key="Ctrl+N" onclick="newFile()"><svg width="22" height="22" viewBox="0 0 22 22"><rect x="3" y="1" width="12" height="17" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><polyline points="11,1 11,7 17,7" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>새 파일</button>
+    <button class="ib" data-tip="최근 작업 파일" onclick="openRecentFiles()"><svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><polyline points="11,6 11,11 15,13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>최근 파일</button>
     <button class="ib" data-tip="열기 (이미지/EPP)" data-key="Ctrl+O" onclick="document.getElementById('openInput').click()"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M2 6a1 1 0 011-1h5l2 2h8a1 1 0 011 1v9a1 1 0 01-1 1H3a1 1 0 01-1-1V6z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>열기</button>
-    <button class="ib" data-tip="EPP 프로젝트 저장" data-key="Ctrl+E" onclick="saveEPP()"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M4 3h11l4 4v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1z" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="7" y="3" width="8" height="5" rx=".5" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="5" y="12" width="12" height="6" rx=".5" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="11" y="16.5" text-anchor="middle" font-size="5" fill="currentColor" font-weight="bold">EPP</text></svg>EPP저장</button>
+    <button class="ib" data-tip="EPP 프로젝트 저장" data-key="Ctrl+E" onclick="saveEPPWithPicker()"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M4 3h11l4 4v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1z" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="7" y="3" width="8" height="5" rx=".5" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="5" y="12" width="12" height="6" rx=".5" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="11" y="16.5" text-anchor="middle" font-size="5" fill="currentColor" font-weight="bold">EPP</text></svg>EPP저장</button>
     <button class="ib" data-tip="저장 (PNG)" data-key="Ctrl+S" onclick="saveFile()"><svg width="22" height="22" viewBox="0 0 22 22"><rect x="3" y="2" width="16" height="18" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="6" y="2" width="9" height="6" rx=".5" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="5" y="12" width="12" height="5" rx=".5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>저장</button>
     <button class="ib" data-tip="다른이름으로 저장" data-key="Ctrl+Shift+S" onclick="openSaveAs()"><svg width="22" height="22" viewBox="0 0 22 22"><rect x="3" y="2" width="16" height="18" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="6" y="2" width="9" height="6" rx=".5" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="5" y="12" width="12" height="5" rx=".5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="17" cy="6" r="4.5" fill="var(--accent)"/><text x="17" y="9" text-anchor="middle" font-size="6" fill="#fff" font-weight="bold">A</text></svg>다른이름</button>
     <button class="ib" data-tip="인쇄" data-key="Ctrl+P" onclick="printCanvas()"><svg width="22" height="22" viewBox="0 0 22 22"><rect x="4" y="7" width="14" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6 7V3h10v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><rect x="6" y="12" width="10" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="16" cy="10" r="1" fill="currentColor"/></svg>인쇄</button>
@@ -878,7 +910,18 @@ let CW=800,CH=600,zoom=1;
 
 // ════════════ OBJECT MODEL ════════════
 let objs=[],oidSeq=0,selId=null,undoSt=[],redoSt=[],clip=null;
+let lastCopyType=null; // 'object' | 'pixel' — 가장 최근 복사한 클립보드 종류 추적
 function mkId(){return++oidSeq;}
+// objs 내 가장 큰 id보다 oidSeq를 크게 맞춰서 이후 mkId()가 중복 id를 만들지 않도록 함
+// (EPP 로드, undo/redo로 외부 id가 섞여 들어올 때 필수)
+function resyncOidSeq(){
+  let maxId=0;
+  for(const o of objs){
+    const n=Number(o.id);
+    if(Number.isFinite(n) && n>maxId) maxId=n;
+  }
+  if(maxId>=oidSeq) oidSeq=maxId;
+}
 
 function snapObjs(){
   return objs.map(o=>{
@@ -1314,9 +1357,9 @@ function setTool(t){
   const N={marque:'영역 선택',select2:'객체 선택',pencil:'연필',brush:'브러시',eraser:'지우개',fill:'채우기',picker:'스포이드',text:'텍스트',line:'선',rect:'사각형',ellipse:'타원',arrow:'화살표',staff:'오선'};
   document.getElementById('statusTool').textContent='도구: '+(N[t]||t);
   HC.style.cursor=t==='select2'?'default':t==='text'?'text':t==='marque'?'crosshair':'crosshair';
-  // 직선 도구일 때만 각도 옵션 표시
+  // 직선/화살표 도구일 때 각도 옵션 표시
   const lar=document.getElementById('lineAngleRow');
-  if(lar) lar.style.display=t==='line'?'flex':'none';
+  if(lar) lar.style.display=(t==='line'||t==='arrow')?'flex':'none';
 }
 
 // ════════════ COLOR ════════════
@@ -1771,6 +1814,7 @@ function copySelected(){
     clip=JSON.parse(JSON.stringify(o));
     if(clip.type==='image')delete clip.img;
     pixelClip=null; // 픽셀 클립 초기화 (객체 복사 우선)
+    lastCopyType='object'; // 가장 최근 복사: 객체
   }
 }
 function pasteClipboard(){
@@ -1995,6 +2039,7 @@ function marqueCopy(){
     }
     pixelClip={snap, w:csw, h:csh};
     clip=null; // 객체 클립 초기화 (픽셀 복사 우선)
+    lastCopyType='pixel'; // 가장 최근 복사: 픽셀
     marqueSnapX=sx; marqueSnapY=sy;
     writeToSystemClipboard(snap, csw, csh); // 시스템 클립보드에도 기록 (다른 탭/앱 호환)
     document.getElementById('statusObj').textContent=
@@ -2004,6 +2049,7 @@ function marqueCopy(){
   // marqueRect 없고 marqueSnap만 있는 경우
   if(marqueSnap){
     pixelClip={snap:marqueSnap,w:marqueSnapW,h:marqueSnapH};
+    lastCopyType='pixel';
     writeToSystemClipboard(marqueSnap, marqueSnapW, marqueSnapH);
     document.getElementById('statusObj').textContent=
       `복사됨: ${marqueSnapW}×${marqueSnapH} px — Ctrl+V로 붙여넣기`;
@@ -2366,7 +2412,7 @@ function onMove(e){
   if(actStroke){actStroke.points.push({x:xi,y:yi});renderAll();}
   if(actShape){
     let ex=xi, ey=yi;
-    if(actShape.shape==='line'){
+    if(actShape.shape==='line'||actShape.shape==='arrow'){
       const angleMode=document.getElementById('lineAngle')?.value||'free';
       if(angleMode==='0'){
         // 수평: y를 시작점과 같게
@@ -2605,6 +2651,7 @@ function newFile(){
 }
 function doNewFile(){
   objs=[];selId=null;undoSt=[];redoSt=[];curFile=null;isDirty=false;
+  oidSeq=0; // id 시퀀스 초기화 (새 파일이므로 충돌 위험 없음)
   setCS(800,600);document.getElementById('titleText').textContent='제목 없음 - Easy Paint Pad';
   document.getElementById('canvasW').value=800;document.getElementById('canvasH').value=600;
   clearSel();refreshList();
@@ -2658,6 +2705,7 @@ function loadImageFile(file){
       document.getElementById('canvasW').value=img.width;
       document.getElementById('canvasH').value=img.height;
       objs=[];undoSt=[];redoSt=[];isDirty=false;
+      oidSeq=0; // 새 이미지로 시작하므로 id 시퀀스 초기화
       objs.push({id:mkId(),type:'image',img,x:0,y:0,w:img.width,h:img.height,alpha:1});
       saveH();setZoom(1);
       isDirty=false; // saveH가 dirty로 만들었으므로 다시 리셋
@@ -2793,7 +2841,7 @@ document.addEventListener('keydown',e=>{
     const key=e.key.toLowerCase();
     if(key==='z'){e.preventDefault();e.shiftKey?redo():undo();}
     if(key==='y'){e.preventDefault();redo();}
-    if(key==='e'){e.preventDefault();saveEPP();}
+    if(key==='e'){e.preventDefault();saveEPPWithPicker();}
     if(key==='s'){e.preventDefault();e.shiftKey?openSaveAs():saveFile();}
     if(key==='n'){e.preventDefault();newFile();}
     if(key==='p'){e.preventDefault();printCanvas();}
@@ -2809,14 +2857,20 @@ document.addEventListener('keydown',e=>{
     }
     if(key==='v'){
       e.preventDefault();
-      // 시스템 클립보드 우선 확인 (다른 탭/다른 앱에서 복사한 내용 받기)
-      tryPasteFromSystemClipboard().then(handled=>{
-        if(!handled){
-          // 시스템 클립보드에 이미지 없으면 내부 상태로 폴백
-          if(pixelClip){marquePixelPaste();}
-          else if(clip){pasteClipboard();}
-        }
-      });
+      // 마지막으로 복사한 것이 '객체'라면 시스템 클립보드(이전 픽셀 복사 잔여물)보다 우선
+      if(lastCopyType==='object'&&clip){
+        pasteClipboard();
+      } else if(lastCopyType==='pixel'&&pixelClip&&tool==='marque'){
+        marquePixelPaste();
+      } else {
+        // 추적된 타입이 없거나 애매한 경우: 시스템 클립보드 확인 후 폴백
+        tryPasteFromSystemClipboard().then(handled=>{
+          if(!handled){
+            if(pixelClip){marquePixelPaste();}
+            else if(clip){pasteClipboard();}
+          }
+        });
+      }
     }
     if(key==='x'){e.preventDefault();if(tool==='marque'&&(marqueRect||marqueSnap)){marqueCut2();}}
     if(key==='d'){e.preventDefault();duplicateSelected();}
@@ -3113,28 +3167,7 @@ function savePDF(){
 }
 // ════════════ EPP 프로젝트 저장/열기 ════════════
 function saveEPP(){
-  // image 타입 객체는 img.src(dataURL)를 별도 저장
-  const saveObjs = objs.map(o=>{
-    if(o.type==='image'){
-      const c=Object.assign({},o);
-      try{ c._src=o.img?.src||''; }catch(e){ c._src=''; }
-      delete c.img;
-      return c;
-    }
-    return Object.assign({},o);
-  });
-
-  const project={
-    version:1,
-    width:CW, height:CH,
-    objs:saveObjs,
-    meta:{
-      title:curFile||'untitled',
-      savedAt:new Date().toISOString()
-    }
-  };
-
-  const json=JSON.stringify(project);
+  const json=buildEPPJson();
   const blob=new Blob([json],{type:'application/json'});
   const a=document.createElement('a');
   const name=(curFile||'untitled').replace(/\.[^.]+$/,'')||'untitled';
@@ -3165,6 +3198,7 @@ function loadEPP(file){
 
       if(pending===0){
         objs=loadedObjs;
+        resyncOidSeq(); // id 충돌 방지: 로드된 객체의 최대 id 이상으로 시퀀스 재설정
         undoSt=[];redoSt=[];isDirty=false;
         curFile=project.meta?.title||file.name;
         document.getElementById('titleText').textContent=curFile+' - Easy Paint Pad';
@@ -3186,6 +3220,7 @@ function loadEPP(file){
             done++;
             if(done>=pending){
               objs=loadedObjs;
+              resyncOidSeq();
               undoSt=[];redoSt=[];isDirty=false;
               curFile=project.meta?.title||file.name;
               document.getElementById('titleText').textContent=curFile+' - Easy Paint Pad';
@@ -3199,6 +3234,7 @@ function loadEPP(file){
             delete o._src;done++;
             if(done>=pending){
               objs=loadedObjs;
+              resyncOidSeq();
               undoSt=[];redoSt=[];isDirty=false;
               renderAll();refreshList();
             }
@@ -3425,6 +3461,257 @@ function documentizeImageData(srcData, level){
   return out;
 }
 
+// ════════════ 최근 작업 파일 (File System Access API) ════════════
+// 파일 핸들 자체를 IndexedDB에 저장 → 경로 문자열이 아닌 핸들로 같은 파일에 재접근
+// Safari 등 미지원 브라우저는 이 기능 전체가 비활성화되고 기존 다운로드 방식만 동작
+const FS_SUPPORTED = ('showSaveFilePicker' in window) && ('showOpenFilePicker' in window);
+const RECENT_MAX=10;
+let _recentDB=null;
+
+function openRecentDB(){
+  return new Promise((resolve,reject)=>{
+    if(_recentDB){resolve(_recentDB);return;}
+    const req=indexedDB.open('epp-recent-files-db',1);
+    req.onupgradeneeded=()=>{
+      const db=req.result;
+      if(!db.objectStoreNames.contains('files')){
+        db.createObjectStore('files',{keyPath:'id'});
+      }
+    };
+    req.onsuccess=()=>{_recentDB=req.result;resolve(_recentDB);};
+    req.onerror=()=>reject(req.error);
+  });
+}
+
+async function getRecentFiles(){
+  if(!FS_SUPPORTED) return [];
+  try{
+    const db=await openRecentDB();
+    return await new Promise((resolve,reject)=>{
+      const tx=db.transaction('files','readonly');
+      const store=tx.objectStore('files');
+      const req=store.getAll();
+      req.onsuccess=()=>{
+        const list=(req.result||[]).sort((a,b)=>b.savedAt-a.savedAt);
+        resolve(list);
+      };
+      req.onerror=()=>reject(req.error);
+    });
+  }catch(e){ return []; }
+}
+
+async function saveRecentFile(entry){
+  if(!FS_SUPPORTED) return;
+  try{
+    const db=await openRecentDB();
+    // 같은 이름 항목 제거 후 추가 (최신으로 갱신)
+    const all=await getRecentFiles();
+    const filtered=all.filter(f=>f.name!==entry.name);
+    filtered.unshift(entry);
+    const trimmed=filtered.slice(0,RECENT_MAX);
+    const removed=filtered.slice(RECENT_MAX);
+
+    const tx=db.transaction('files','readwrite');
+    const store=tx.objectStore('files');
+    store.clear();
+    trimmed.forEach(f=>store.put(f));
+    return new Promise(resolve=>{ tx.oncomplete=()=>resolve(); });
+  }catch(e){ console.warn('최근 파일 저장 실패:',e); }
+}
+
+async function removeRecentFile(id){
+  if(!FS_SUPPORTED) return;
+  try{
+    const db=await openRecentDB();
+    const tx=db.transaction('files','readwrite');
+    tx.objectStore('files').delete(id);
+  }catch(e){}
+}
+
+async function clearAllRecentFiles(){
+  if(!FS_SUPPORTED) return;
+  try{
+    const db=await openRecentDB();
+    const tx=db.transaction('files','readwrite');
+    tx.objectStore('files').clear();
+  }catch(e){}
+}
+
+// ── 파일로 저장 (File System Access API 사용, 핸들을 최근 목록에 기록)
+async function saveEPPWithPicker(){
+  if(!FS_SUPPORTED){ saveEPP(); return; } // 폴백: 기존 다운로드 방식
+  try{
+    const suggestedName=(curFile||'untitled').replace(/\.[^.]+$/,'')+'.epp';
+    const handle=await window.showSaveFilePicker({
+      suggestedName,
+      types:[{description:'Easy Paint Pad 프로젝트',accept:{'application/json':['.epp']}}]
+    });
+    const json=buildEPPJson();
+    const writable=await handle.createWritable();
+    await writable.write(json);
+    await writable.close();
+
+    curFile=handle.name;
+    document.getElementById('titleText').textContent=curFile+' - Easy Paint Pad';
+    markSaved();
+
+    await saveRecentFile({
+      id:'epp-'+Date.now()+'-'+Math.random().toString(36).slice(2),
+      name:handle.name, type:'epp', handle,
+      savedAt:Date.now(), w:CW, h:CH
+    });
+  }catch(err){
+    if(err.name!=='AbortError') console.warn('저장 실패:',err);
+  }
+}
+
+async function saveImageWithPicker(){
+  if(!FS_SUPPORTED){ saveFile(); return; } // 폴백
+  try{
+    const suggestedName=(curFile||'Easy_Paint_Pad').replace(/\.[^.]+$/,'')+'.png';
+    const handle=await window.showSaveFilePicker({
+      suggestedName,
+      types:[{description:'PNG 이미지',accept:{'image/png':['.png']}}]
+    });
+    const blob=await new Promise(resolve=>flatten().toBlob(resolve,'image/png'));
+    const writable=await handle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    markSaved();
+
+    await saveRecentFile({
+      id:'img-'+Date.now()+'-'+Math.random().toString(36).slice(2),
+      name:handle.name, type:'image', handle,
+      savedAt:Date.now(), w:CW, h:CH
+    });
+  }catch(err){
+    if(err.name!=='AbortError') console.warn('저장 실패:',err);
+  }
+}
+
+// EPP 프로젝트 JSON 문자열 생성 (기존 saveEPP와 공통 로직 분리)
+function buildEPPJson(){
+  const saveObjs = objs.map(o=>{
+    if(o.type==='image'){
+      const c=Object.assign({},o);
+      try{ c._src=o.img?.src||''; }catch(e){ c._src=''; }
+      delete c.img;
+      return c;
+    }
+    return Object.assign({},o);
+  });
+  const project={
+    version:1, width:CW, height:CH, objs:saveObjs,
+    meta:{ title:curFile||'untitled', savedAt:new Date().toISOString() }
+  };
+  return JSON.stringify(project);
+}
+
+// ── 최근 파일에서 다시 열기 (핸들로 직접 읽기, 권한 재확인 포함)
+async function openRecentFileEntry(entry){
+  try{
+    // 권한 확인 (이미 허용했으면 통과, 아니면 재요청)
+    const perm=await entry.handle.queryPermission({mode:'read'});
+    if(perm!=='granted'){
+      const req=await entry.handle.requestPermission({mode:'read'});
+      if(req!=='granted'){
+        alert('파일 접근 권한이 거부되었습니다.');
+        return;
+      }
+    }
+    const file=await entry.handle.getFile();
+    if(entry.type==='epp'){
+      loadEPP(file);
+    } else {
+      loadImageFile(file);
+    }
+    closeRecentFiles();
+  }catch(err){
+    if(err.name==='NotFoundError'){
+      alert('파일을 찾을 수 없습니다. 이동되었거나 삭제되었을 수 있습니다.');
+    } else {
+      alert('파일을 열 수 없습니다: '+err.message);
+    }
+  }
+}
+
+function openRecentFiles(){
+  renderRecentFilesList();
+  document.getElementById('recentFilesModal').classList.remove('hidden');
+}
+function closeRecentFiles(){
+  document.getElementById('recentFilesModal').classList.add('hidden');
+}
+async function clearRecentFiles(){
+  if(!confirm('최근 작업 파일 목록을 모두 삭제할까요? (실제 파일은 삭제되지 않습니다)')) return;
+  await clearAllRecentFiles();
+  renderRecentFilesList();
+}
+
+async function renderRecentFilesList(){
+  const container=document.getElementById('recentFilesList');
+  container.innerHTML='';
+
+  if(!FS_SUPPORTED){
+    const empty=document.createElement('div');
+    empty.className='recent-file-empty';
+    empty.textContent='이 브라우저는 최근 파일 기능을 지원하지 않습니다.\n(Chrome 또는 Edge 브라우저에서 사용 가능)';
+    container.appendChild(empty);
+    return;
+  }
+
+  const list=await getRecentFiles();
+  if(!list.length){
+    const empty=document.createElement('div');
+    empty.className='recent-file-empty';
+    empty.textContent='최근 저장한 파일이 없습니다.';
+    container.appendChild(empty);
+    return;
+  }
+
+  list.forEach(entry=>{
+    const item=document.createElement('div');
+    item.className='recent-file-item';
+
+    const icon=document.createElement('div');
+    icon.className='recent-file-icon';
+    icon.textContent=entry.type==='epp'?'📄':'🖼️';
+
+    const info=document.createElement('div');
+    info.className='recent-file-info';
+    const nameDiv=document.createElement('div');
+    nameDiv.className='recent-file-name';
+    nameDiv.textContent=entry.name;
+    const metaDiv=document.createElement('div');
+    metaDiv.className='recent-file-meta';
+    const dt=new Date(entry.savedAt);
+    const dtStr=`${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,'0')}.${String(dt.getDate()).padStart(2,'0')} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+    const typeLabel=entry.type==='epp'?'EPP 프로젝트':'이미지';
+    metaDiv.textContent=`${typeLabel} · ${entry.w}×${entry.h} · ${dtStr}`;
+    info.appendChild(nameDiv);info.appendChild(metaDiv);
+
+    const delBtn=document.createElement('button');
+    delBtn.className='recent-file-del';
+    delBtn.textContent='✕';
+    delBtn.title='목록에서 제거';
+    delBtn.onclick=async(e)=>{
+      e.stopPropagation();
+      await removeRecentFile(entry.id);
+      renderRecentFilesList();
+    };
+
+    item.appendChild(icon);item.appendChild(info);item.appendChild(delBtn);
+    item.onclick=()=>{
+      const doOpen=()=>openRecentFileEntry(entry);
+      if(isDirty){
+        showSaveConfirm('현재 작업이 저장되지 않았습니다.', doOpen);
+      } else { doOpen(); }
+    };
+
+    container.appendChild(item);
+  });
+}
+
 // ════════════ 도움말 함수 ════════════
 function showAbout(){
   document.getElementById('aboutModal').classList.remove('hidden');
@@ -3436,7 +3723,7 @@ function contactDev(){
   window.open('mailto:limfrog75@gmail.com?subject=Easy%20Paint%20Pad%20%EB%AC%B8%EC%9D%98');
 }
 // 모달 외부 클릭 닫기
-['aboutModal','guideModal'].forEach(id=>{
+['aboutModal','guideModal','recentFilesModal'].forEach(id=>{
   document.getElementById(id).addEventListener('click',e=>{
     if(e.target.id===id) document.getElementById(id).classList.add('hidden');
   });
