@@ -455,7 +455,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.13 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.14 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -1813,8 +1813,12 @@ function copySelected(){
   if(o){
     clip=JSON.parse(JSON.stringify(o));
     if(clip.type==='image')delete clip.img;
-    pixelClip=null; // 픽셀 클립 초기화 (객체 복사 우선)
-    lastCopyType='object'; // 가장 최근 복사: 객체
+    clip._copiedAt=Date.now(); // 복사 시각 기록
+    pixelClip=null;
+    lastCopyType='object';
+    // 시스템 클립보드에도 기록 (다른 탭에서 붙여넣기 가능하도록)
+    const payload=JSON.stringify({_eppClip:true, obj:clip, copiedAt:clip._copiedAt});
+    navigator.clipboard?.writeText(payload).catch(()=>{});
   }
 }
 function pasteClipboard(){
@@ -1970,6 +1974,48 @@ async function writeToSystemClipboard(imageData, w, h){
 }
 
 // ── 시스템 클립보드(OS)에서 이미지 읽기 시도: 다른 탭/다른 프로그램에서 복사한 내용
+// ── 스마트 붙여넣기: 시스템 클립보드와 내부 클립보드 중 최신 것 사용
+async function trySmartPaste(){
+  // 시스템 클립보드 읽기 시도
+  if(navigator.clipboard?.read || navigator.clipboard?.readText){
+    try{
+      // 1) 텍스트 클립보드에서 EPP 객체 JSON 확인
+      let sysText=null, sysTextTime=0;
+      if(navigator.clipboard.readText){
+        try{
+          sysText=await navigator.clipboard.readText();
+          if(sysText){
+            try{
+              const parsed=JSON.parse(sysText);
+              if(parsed._eppClip&&parsed.obj){
+                sysTextTime=parsed.copiedAt||0;
+                const internalTime=clip?._copiedAt||0;
+                // 시스템 클립보드가 더 최신이면 그것을 사용
+                if(sysTextTime>internalTime){
+                  clip=parsed.obj;
+                  clip._copiedAt=sysTextTime;
+                  lastCopyType='object';
+                  pixelClip=null;
+                }
+                // 어느 쪽이든 객체 붙여넣기
+                pasteClipboard();
+                return;
+              }
+            }catch(e){/* JSON 아님 */}
+          }
+        }catch(e){/* 텍스트 읽기 실패 */}
+      }
+      // 2) 이미지 클립보드 확인 (픽셀 붙여넣기)
+      const handled=await tryPasteFromSystemClipboard();
+      if(handled) return;
+    }catch(e){/* 권한 거부 등 */}
+  }
+  // 3) 폴백: 내부 클립보드
+  if(lastCopyType==='object'&&clip){ pasteClipboard(); }
+  else if(pixelClip){ marquePixelPaste(); }
+  else if(clip){ pasteClipboard(); }
+}
+
 async function tryPasteFromSystemClipboard(){
   if(!navigator.clipboard || !navigator.clipboard.read){
     return false; // 미지원 브라우저
@@ -2857,20 +2903,8 @@ document.addEventListener('keydown',e=>{
     }
     if(key==='v'){
       e.preventDefault();
-      // 마지막으로 복사한 것이 '객체'라면 시스템 클립보드(이전 픽셀 복사 잔여물)보다 우선
-      if(lastCopyType==='object'&&clip){
-        pasteClipboard();
-      } else if(lastCopyType==='pixel'&&pixelClip&&tool==='marque'){
-        marquePixelPaste();
-      } else {
-        // 추적된 타입이 없거나 애매한 경우: 시스템 클립보드 확인 후 폴백
-        tryPasteFromSystemClipboard().then(handled=>{
-          if(!handled){
-            if(pixelClip){marquePixelPaste();}
-            else if(clip){pasteClipboard();}
-          }
-        });
-      }
+      // 시스템 클립보드의 내용(텍스트/이미지)과 내부 클립보드를 타임스탬프로 비교해 최신 사용
+      trySmartPaste();
     }
     if(key==='x'){e.preventDefault();if(tool==='marque'&&(marqueRect||marqueSnap)){marqueCut2();}}
     if(key==='d'){e.preventDefault();duplicateSelected();}
