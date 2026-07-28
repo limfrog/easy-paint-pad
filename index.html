@@ -455,7 +455,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.14 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.15 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -3178,11 +3178,11 @@ function savePDF(){
     // A4: portrait=595.28×841.89pt, landscape=841.89×595.28pt
     // 항상 portrait A4 (595.28×841.89pt)
     const pageW=595.28, pageH=841.89;
-    // 캔버스를 A4 너비에 맞게 스케일 (비율 유지)
+    // 비율 유지하며 A4에 맞게 스케일
     const scale=Math.min(pageW/CW, pageH/CH);
     const imgW=CW*scale, imgH=CH*scale;
-    // 좌측 상단 배치
-    const offX=0, offY=0;
+    // 가로 중앙 정렬, 세로 상단 배치
+    const offX=(pageW-imgW)/2, offY=0;
     const doc=new jsPDF({orientation:'portrait', unit:'pt', format:'a4'});
     const dataUrl=flatten().toDataURL('image/png');
     doc.addImage(dataUrl,'PNG',offX,offY,imgW,imgH);
