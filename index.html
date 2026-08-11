@@ -165,9 +165,16 @@ select.sel:focus{border-color:var(--accent)}
 
   .canvas-area{padding:10px;-webkit-overflow-scrolling:touch;}
 
-  /* 상태바: 모바일에서 좌표 정보 숨기고 핵심만 */
-  .status-bar #statusPos{display:none;}
-  .status-bar{height:26px;font-size:10px;padding:0 8px;gap:8px;}
+  /* 상태바: 모바일에서 핵심 정보만 표시, 나머지는 숨기거나 줄바꿈 처리 */
+  .statusbar{height:auto;min-height:26px;font-size:10px;padding:4px 8px;gap:6px;
+    flex-wrap:wrap;row-gap:2px;}
+  .statusbar #statusPos{display:none;}
+  .statusbar #statusHint{display:none;}
+  .statusbar #statusSize{font-size:10px;}
+  .statusbar #statusTool{font-size:10px;}
+  .statusbar #statusObj{font-size:10px;white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;max-width:55vw;}
+  .statusbar .zoom-ctrl{margin-left:auto;flex-shrink:0;}
 
   /* 컬러 섹션: 좁은 화면에서 줄바꿈 허용 */
   .color-section{border-left:1px solid var(--border);}
@@ -182,6 +189,9 @@ select.sel:focus{border-color:var(--accent)}
   .rs{padding:3px 4px 2px;}
   .sel{font-size:10px;padding:2px 3px;}
   .obj-panel{width:85vw;}
+  /* 좁은 화면: 상태바에서 캔버스 크기 정보도 숨기고 도구명 + 줌만 표시 */
+  .statusbar #statusSize{display:none;}
+  .statusbar{padding:4px 6px;gap:4px;}
 }
 
 /* ═══ 터치 디바이스: 핸들/버튼 타겟 확대 ═══ */
@@ -517,7 +527,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.51 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.52 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -2378,53 +2388,52 @@ HC.addEventListener('mousemove',onMove);
 HC.addEventListener('mouseup',onUp);
 HC.addEventListener('dblclick',onDbl);
 
-// ── 터치(1손가락) → 마우스 이벤트로 변환: 모바일에서 그리기/선택 가능
+// ── 터치(1손가락) → 그리기/선택 직접 처리 (synthetic MouseEvent 대신 좌표 직접 전달)
 (function(){
-  function touchToMouseEvent(touch, type){
-    return new MouseEvent(type, {
-      clientX: touch.clientX, clientY: touch.clientY,
-      bubbles: true, cancelable: true,
-      ctrlKey: false, metaKey: false, shiftKey: false
-    });
-  }
   let touchActive=false;
   let lastTapTime=0, lastTapX=0, lastTapY=0;
+
+  // touch 객체에서 onDown/onMove가 필요로 하는 최소 형태의 pseudo-event 생성
+  function pseudoEvent(touch){
+    return { clientX: touch.clientX, clientY: touch.clientY,
+             ctrlKey:false, metaKey:false, shiftKey:false, preventDefault(){} };
+  }
 
   HC.addEventListener('touchstart', e=>{
     if(e.touches.length!==1) return; // 2손가락 이상은 핀치줌이 처리
     e.preventDefault();
     touchActive=true;
     const t=e.touches[0];
-    // 더블탭 감지 (300ms 이내, 20px 이내)
     const now=Date.now();
     const dx=Math.abs(t.clientX-lastTapX), dy=Math.abs(t.clientY-lastTapY);
     if(now-lastTapTime<300 && dx<20 && dy<20){
-      HC.dispatchEvent(touchToMouseEvent(t,'dblclick'));
+      onDbl(pseudoEvent(t));
       lastTapTime=0;
     } else {
       lastTapTime=now; lastTapX=t.clientX; lastTapY=t.clientY;
     }
-    HC.dispatchEvent(touchToMouseEvent(t,'mousedown'));
+    onDown(pseudoEvent(t));
   },{passive:false});
 
   HC.addEventListener('touchmove', e=>{
     if(!touchActive) return;
     if(e.touches.length!==1){
-      // 두 번째 손가락이 추가됨 → 핀치줌으로 전환, 진행 중이던 드로잉은 정리
+      // 두 번째 손가락이 추가됨 → 핀치줌으로 전환, 진행 중이던 드로잉/드래그 정리
       touchActive=false;
-      HC.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,cancelable:true}));
+      onUp();
+      document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,cancelable:true}));
       return;
     }
     e.preventDefault();
     const t=e.touches[0];
-    HC.dispatchEvent(touchToMouseEvent(t,'mousemove'));
+    onMove(pseudoEvent(t));
   },{passive:false});
 
   HC.addEventListener('touchend', e=>{
     if(!touchActive) return;
     touchActive=false;
-    const t=e.changedTouches[0];
-    if(t) HC.dispatchEvent(touchToMouseEvent(t,'mouseup'));
+    onUp();
+    document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,cancelable:true}));
   });
   HC.addEventListener('touchcancel', ()=>{ touchActive=false; });
 })();
@@ -3954,8 +3963,9 @@ window.addEventListener('orientationchange', ()=>setTimeout(setViewportHeight,10
   const area=document.getElementById('canvasArea');
   if(!area) return;
   let pinchStartDist=0, pinchStartZoom=1;
-  let panStartX=0, panStartY=0, panScrollL=0, panScrollT=0;
-  let isPinching=false, isTwoFingerPan=false;
+  let pinchStartMidX=0, pinchStartMidY=0; // 뷰포트 기준 중심점
+  let pinchStartScrollL=0, pinchStartScrollT=0;
+  let isPinching=false;
 
   function dist(t0,t1){
     const dx=t0.clientX-t1.clientX, dy=t0.clientY-t1.clientY;
@@ -3971,10 +3981,10 @@ window.addEventListener('orientationchange', ()=>setTimeout(setViewportHeight,10
       isPinching=true;
       pinchStartDist=dist(e.touches[0],e.touches[1]);
       pinchStartZoom=zoom;
-      panStartX=mid(e.touches[0],e.touches[1]).x;
-      panStartY=mid(e.touches[0],e.touches[1]).y;
-      panScrollL=area.scrollLeft;
-      panScrollT=area.scrollTop;
+      const m=mid(e.touches[0],e.touches[1]);
+      pinchStartMidX=m.x; pinchStartMidY=m.y;
+      pinchStartScrollL=area.scrollLeft;
+      pinchStartScrollT=area.scrollTop;
     }
   },{passive:false});
 
@@ -3982,20 +3992,34 @@ window.addEventListener('orientationchange', ()=>setTimeout(setViewportHeight,10
     if(e.touches.length===2 && isPinching){
       e.preventDefault();
       const d=dist(e.touches[0],e.touches[1]);
+      if(pinchStartDist<1) return;
       const scale=d/pinchStartDist;
-      let nz=Math.max(0.1,Math.min(4, pinchStartZoom*scale));
-      zoom=nz;
-      applyZoom();
-      // 두 손가락 이동에 따라 스크롤도 같이 이동 (자연스러운 팬)
+      const newZoom=Math.max(0.1,Math.min(8, pinchStartZoom*scale));
+
+      // 핀치 시작 시점의 중심점이 가리키던 캔버스 상의 논리 좌표를 고정한 채 확대/축소
+      const areaRect=area.getBoundingClientRect();
+      // 핀치 시작 시점 중심점의 캔버스 컨텐츠 기준 오프셋 (스크롤 포함, 확대 전 배율 기준)
+      const contentX=(pinchStartMidX-areaRect.left)+pinchStartScrollL;
+      const contentY=(pinchStartMidY-areaRect.top)+pinchStartScrollT;
+      // 논리 좌표 (배율 무관)
+      const logicalX=contentX/pinchStartZoom;
+      const logicalY=contentY/pinchStartZoom;
+
+      setZoom(newZoom);
+
+      // 새 배율 기준으로 같은 논리 좌표가 같은 화면 위치(중심점)에 오도록 스크롤 보정
       const m=mid(e.touches[0],e.touches[1]);
-      area.scrollLeft=panScrollL-(m.x-panStartX);
-      area.scrollTop=panScrollT-(m.y-panStartY);
+      const newContentX=logicalX*newZoom;
+      const newContentY=logicalY*newZoom;
+      area.scrollLeft=newContentX-(m.x-areaRect.left);
+      area.scrollTop=newContentY-(m.y-areaRect.top);
     }
   },{passive:false});
 
   area.addEventListener('touchend', e=>{
     if(e.touches.length<2){ isPinching=false; }
   });
+  area.addEventListener('touchcancel', ()=>{ isPinching=false; });
 })();
 
 // 모바일 텍스트 편집기: 가상 키보드가 뷰포트를 줄일 때 스크롤 보정
