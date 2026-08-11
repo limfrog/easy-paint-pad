@@ -42,7 +42,10 @@
 }
 body { font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
   background:var(--bg); display:flex; flex-direction:column;
-  height:100vh; overflow:hidden; color:var(--text); font-size:12px; user-select:none; }
+  height:100vh; height:calc(var(--vh, 1vh) * 100); overflow:hidden; color:var(--text); font-size:12px; user-select:none;
+  overscroll-behavior:none; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+#hitCanvas{touch-action:none;}
+.canvas-area{touch-action:pan-x pan-y;}
 .title-bar { background:var(--bar); height:36px; display:flex; align-items:center;
   padding:0 12px; border-bottom:1px solid var(--border); flex-shrink:0; gap:8px; }
 .title-text { flex:1; text-align:center; font-size:13px; font-weight:500; }
@@ -130,6 +133,65 @@ select.sel:focus{border-color:var(--accent)}
 .main-area{display:flex;flex:1;overflow:hidden}
 .canvas-area{flex:1;background:var(--cbg);overflow:auto;display:flex;align-items:flex-start;justify-content:flex-start;padding:20px;position:relative}
 .canvas-wrapper{position:relative;display:inline-block}
+
+/* ═══ 모바일 전용 UI ═══ */
+.mobile-obj-toggle{display:none;}
+.mobile-panel-overlay{display:none;}
+
+/* ═══ 반응형: 태블릿/모바일 (900px 이하) ═══ */
+@media (max-width:900px){
+  body{font-size:13px;}
+  .title-bar{height:44px;padding:0 10px;}
+  .title-text{font-size:13px;}
+  .tab-bar{height:38px;}
+  .tab-btn{padding:0 12px;font-size:12px;}
+  .ribbon-panel{height:auto;min-height:64px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;}
+  .ib{min-width:48px;height:52px;padding:4px 6px;font-size:9px;}
+  .ib svg{width:20px;height:20px;}
+
+  /* 객체 목록 패널: 기본 숨김, 토글로 오버레이 표시 */
+  .obj-panel{position:fixed;top:0;right:0;bottom:0;width:78vw;max-width:280px;
+    z-index:500;transform:translateX(100%);transition:transform .22s ease;
+    box-shadow:-4px 0 20px rgba(0,0,0,.25);}
+  .obj-panel.mobile-open{transform:translateX(0);}
+  .mobile-panel-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:499;}
+  .mobile-panel-overlay.show{display:block;}
+
+  /* 모바일 전용 객체목록 토글 버튼 (타이틀바) */
+  .mobile-obj-toggle{display:flex;align-items:center;justify-content:center;
+    width:32px;height:32px;border-radius:8px;background:transparent;border:none;
+    color:var(--text);cursor:pointer;margin-left:auto;flex-shrink:0;}
+  .mobile-obj-toggle:active{background:var(--hover);}
+
+  .canvas-area{padding:10px;-webkit-overflow-scrolling:touch;}
+
+  /* 상태바: 모바일에서 좌표 정보 숨기고 핵심만 */
+  .status-bar #statusPos{display:none;}
+  .status-bar{height:26px;font-size:10px;padding:0 8px;gap:8px;}
+
+  /* 컬러 섹션: 좁은 화면에서 줄바꿈 허용 */
+  .color-section{border-left:1px solid var(--border);}
+}
+
+/* ═══ 반응형: 좁은 모바일 (560px 이하) ═══ */
+@media (max-width:560px){
+  .title-text{font-size:12px;}
+  .tab-btn{padding:0 9px;font-size:11px;}
+  .ib{min-width:44px;height:48px;font-size:8.5px;padding:3px 4px;}
+  .ib svg{width:18px;height:18px;}
+  .rs{padding:3px 4px 2px;}
+  .sel{font-size:10px;padding:2px 3px;}
+  .obj-panel{width:85vw;}
+}
+
+/* ═══ 터치 디바이스: 핸들/버튼 타겟 확대 ═══ */
+@media (pointer:coarse){
+  .handle{width:16px!important;height:16px!important;margin:-8px!important;}
+  .ib{min-height:44px;}
+  .op-btn,.obj-del{padding:6px;}
+  .modal-xbtn{padding:8px;}
+}
+
 #bgCanvas{display:block;position:absolute;top:0;left:0;pointer-events:none;z-index:0}
 #mainCanvas{display:block;position:relative;z-index:1;box-shadow:0 2px 16px rgba(0,0,0,.38);cursor:crosshair;background:transparent}
 #hitCanvas{position:absolute;top:0;left:0;z-index:2;cursor:crosshair;opacity:0}
@@ -455,7 +517,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.15 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.5 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -577,7 +639,11 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 
 <div class="title-bar">
   <div class="title-text" id="titleText">제목 없음 - Easy Paint Pad</div>
+  <button class="mobile-obj-toggle" onclick="toggleMobileObjPanel()" aria-label="객체 목록">
+    <svg width="20" height="20" viewBox="0 0 22 22"><rect x="3" y="4" width="16" height="3" rx="1" fill="currentColor"/><rect x="3" y="9.5" width="16" height="3" rx="1" fill="currentColor"/><rect x="3" y="15" width="16" height="3" rx="1" fill="currentColor"/></svg>
+  </button>
 </div>
+<div class="mobile-panel-overlay" id="mobileObjOverlay" onclick="toggleMobileObjPanel(false)"></div>
 
 <div class="tab-bar">
   <button class="tab-btn active" onclick="switchTab('file',this)">파일</button>
@@ -2311,6 +2377,52 @@ HC.addEventListener('mousedown',onDown);
 HC.addEventListener('mousemove',onMove);
 HC.addEventListener('mouseup',onUp);
 HC.addEventListener('dblclick',onDbl);
+
+// ── 터치(1손가락) → 마우스 이벤트로 변환: 모바일에서 그리기/선택 가능
+(function(){
+  function touchToMouseEvent(touch, type){
+    return new MouseEvent(type, {
+      clientX: touch.clientX, clientY: touch.clientY,
+      bubbles: true, cancelable: true,
+      ctrlKey: false, metaKey: false, shiftKey: false
+    });
+  }
+  let touchActive=false;
+  let lastTapTime=0, lastTapX=0, lastTapY=0;
+
+  HC.addEventListener('touchstart', e=>{
+    if(e.touches.length!==1) return; // 2손가락 이상은 핀치줌이 처리
+    e.preventDefault();
+    touchActive=true;
+    const t=e.touches[0];
+    // 더블탭 감지 (300ms 이내, 20px 이내)
+    const now=Date.now();
+    const dx=Math.abs(t.clientX-lastTapX), dy=Math.abs(t.clientY-lastTapY);
+    if(now-lastTapTime<300 && dx<20 && dy<20){
+      HC.dispatchEvent(touchToMouseEvent(t,'dblclick'));
+      lastTapTime=0;
+    } else {
+      lastTapTime=now; lastTapX=t.clientX; lastTapY=t.clientY;
+    }
+    HC.dispatchEvent(touchToMouseEvent(t,'mousedown'));
+  },{passive:false});
+
+  HC.addEventListener('touchmove', e=>{
+    if(!touchActive || e.touches.length!==1) return;
+    e.preventDefault();
+    const t=e.touches[0];
+    HC.dispatchEvent(touchToMouseEvent(t,'mousemove'));
+  },{passive:false});
+
+  HC.addEventListener('touchend', e=>{
+    if(!touchActive) return;
+    touchActive=false;
+    const t=e.changedTouches[0];
+    if(t) HC.dispatchEvent(touchToMouseEvent(t,'mouseup'));
+  });
+  HC.addEventListener('touchcancel', ()=>{ touchActive=false; });
+})();
+
 // 마우스가 캔버스 밖으로 나가도 드래그 중인 동작(영역선택 등)이 계속되도록
 // document 레벨에서도 동일 핸들러 등록 (좌표는 getPos에서 캔버스 범위로 clamp됨)
 // 영역선택 드래그 중 마우스가 캔버스 밖으로 나가도 좌표가 계속 추적되도록
@@ -3811,6 +3923,83 @@ function contactDev(){
   document.addEventListener('mousedown',()=>{ tt.classList.remove('show'); tt.style.opacity='0'; });
   document.addEventListener('scroll',()=>{ tt.classList.remove('show'); tt.style.opacity='0'; },true);
 })();
+
+// ════════════ 모바일 최적화 ════════════
+
+// 객체 목록 패널 모바일 토글
+function toggleMobileObjPanel(force){
+  const panel=document.querySelector('.obj-panel');
+  const overlay=document.getElementById('mobileObjOverlay');
+  const show=force!==undefined?force:!panel.classList.contains('mobile-open');
+  panel.classList.toggle('mobile-open',show);
+  overlay.classList.toggle('show',show);
+}
+
+// 모바일 브라우저 주소창 높이 변화 보정 (100vh 대신 실제 뷰포트 높이 사용)
+function setViewportHeight(){
+  document.documentElement.style.setProperty('--vh', (window.innerHeight*0.01)+'px');
+}
+setViewportHeight();
+window.addEventListener('resize', setViewportHeight);
+window.addEventListener('orientationchange', ()=>setTimeout(setViewportHeight,100));
+
+// ── 터치 제스처: 핀치 확대/축소 + 두 손가락 팬
+(function(){
+  const area=document.getElementById('canvasArea');
+  if(!area) return;
+  let pinchStartDist=0, pinchStartZoom=1;
+  let panStartX=0, panStartY=0, panScrollL=0, panScrollT=0;
+  let isPinching=false, isTwoFingerPan=false;
+
+  function dist(t0,t1){
+    const dx=t0.clientX-t1.clientX, dy=t0.clientY-t1.clientY;
+    return Math.sqrt(dx*dx+dy*dy);
+  }
+  function mid(t0,t1){
+    return {x:(t0.clientX+t1.clientX)/2, y:(t0.clientY+t1.clientY)/2};
+  }
+
+  area.addEventListener('touchstart', e=>{
+    if(e.touches.length===2){
+      e.preventDefault();
+      isPinching=true;
+      pinchStartDist=dist(e.touches[0],e.touches[1]);
+      pinchStartZoom=zoom;
+      panStartX=mid(e.touches[0],e.touches[1]).x;
+      panStartY=mid(e.touches[0],e.touches[1]).y;
+      panScrollL=area.scrollLeft;
+      panScrollT=area.scrollTop;
+    }
+  },{passive:false});
+
+  area.addEventListener('touchmove', e=>{
+    if(e.touches.length===2 && isPinching){
+      e.preventDefault();
+      const d=dist(e.touches[0],e.touches[1]);
+      const scale=d/pinchStartDist;
+      let nz=Math.max(0.1,Math.min(4, pinchStartZoom*scale));
+      zoom=nz;
+      applyZoom();
+      // 두 손가락 이동에 따라 스크롤도 같이 이동 (자연스러운 팬)
+      const m=mid(e.touches[0],e.touches[1]);
+      area.scrollLeft=panScrollL-(m.x-panStartX);
+      area.scrollTop=panScrollT-(m.y-panStartY);
+    }
+  },{passive:false});
+
+  area.addEventListener('touchend', e=>{
+    if(e.touches.length<2){ isPinching=false; }
+  });
+})();
+
+// 모바일 텍스트 편집기: 가상 키보드가 뷰포트를 줄일 때 스크롤 보정
+if('visualViewport' in window){
+  window.visualViewport.addEventListener('resize', ()=>{
+    if(actTed){
+      setTimeout(()=>{ actTed.scrollIntoView({block:'nearest'}); }, 50);
+    }
+  });
+}
 
 // ════════════ INIT ════════════
 buildPals();updColorUI();updFontPreview();
