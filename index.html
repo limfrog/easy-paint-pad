@@ -126,6 +126,26 @@ select.sel:focus{border-color:var(--accent)}
 .spbtn{width:14px;height:11px;border:1px solid var(--border);background:#f5f5f5;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:7px;padding:0}
 .spbtn:first-child{border-radius:0 3px 0 0;border-bottom:none}.spbtn:last-child{border-radius:0 0 3px 0}
 .spbtn:hover{background:var(--hover)}
+.fsize-ctrl{display:flex;align-items:stretch;border:1px solid var(--border);border-radius:6px;overflow:hidden;height:26px;}
+.fsize-btn{width:26px;border:none;background:#f5f5f5;cursor:pointer;font-size:15px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;color:var(--text);padding:0;
+  touch-action:manipulation;user-select:none;}
+.fsize-btn:hover{background:var(--hover)}
+.fsize-display{min-width:32px;padding:0 5px;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:600;background:#fff;color:var(--text);cursor:pointer;
+  border-left:1px solid var(--border);border-right:1px solid var(--border);}
+.fsize-display:hover{background:var(--hover)}
+[data-theme="dark"] .fsize-btn{background:var(--hover);color:var(--text);}
+[data-theme="dark"] .fsize-display{background:var(--bar);color:var(--text);}
+@media (pointer:coarse){
+  .fsize-ctrl{height:34px;}
+  .fsize-btn{width:36px;font-size:18px;}
+  .fsize-display{min-width:40px;font-size:13px;}
+}
+.fsize-preset{padding:10px 4px;border:1px solid var(--border);border-radius:8px;
+  background:var(--bar);color:var(--text);font-size:14px;font-weight:600;cursor:pointer;}
+.fsize-preset:hover{background:var(--hover)}
+.fsize-preset:active{background:var(--active,#d0e4ff)}
 .tsb{width:22px;height:22px;border:1px solid transparent;border-radius:3px;background:transparent;cursor:pointer;font-family:inherit;font-size:12px;display:flex;align-items:center;justify-content:center;color:var(--text)}
 .tsb:hover{background:var(--hover);border-color:var(--border)}.tsb.active{background:var(--active);border-color:var(--accent)}
 .vdiv{width:1px;background:var(--borderl);align-self:stretch;margin:0 2px}
@@ -534,6 +554,39 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
   </div>
 </div>
 
+<!-- 폰트 크기 선택 모달 (모바일 친화적) -->
+<div class="modal-overlay hidden" id="fontSizeModal">
+  <div class="modal" style="width:320px;max-width:90vw">
+    <div class="modal-head">글자 크기
+      <button class="modal-xbtn" onclick="closeFontSizeModal()">✕</button>
+    </div>
+    <div class="modal-body" style="gap:14px">
+      <div style="display:flex;align-items:center;justify-content:center;gap:14px">
+        <button class="fsize-btn" style="width:44px;height:44px;font-size:22px;border:1px solid var(--border);border-radius:8px"
+          onclick="changeFontSize(-1)">−</button>
+        <div style="font-size:28px;font-weight:700;min-width:64px;text-align:center;color:var(--accent)" id="fontSizeModalVal">18</div>
+        <button class="fsize-btn" style="width:44px;height:44px;font-size:22px;border:1px solid var(--border);border-radius:8px"
+          onclick="changeFontSize(1)">＋</button>
+      </div>
+      <input type="range" id="fontSizeSlider" min="6" max="120" value="18"
+        style="width:100%;accent-color:var(--accent)" oninput="setFontSizeFromSlider(this.value)">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        <button class="fsize-preset" onclick="setFontSizeExact(12)">12</button>
+        <button class="fsize-preset" onclick="setFontSizeExact(16)">16</button>
+        <button class="fsize-preset" onclick="setFontSizeExact(18)">18</button>
+        <button class="fsize-preset" onclick="setFontSizeExact(24)">24</button>
+        <button class="fsize-preset" onclick="setFontSizeExact(32)">32</button>
+        <button class="fsize-preset" onclick="setFontSizeExact(48)">48</button>
+        <button class="fsize-preset" onclick="setFontSizeExact(64)">64</button>
+        <button class="fsize-preset" onclick="setFontSizeExact(96)">96</button>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ok" onclick="closeFontSizeModal()" style="width:100%">확인</button>
+    </div>
+  </div>
+</div>
+
 <!-- 문서화 모달 -->
 <div class="modal-overlay hidden" id="documentizeModal">
   <div class="modal" style="width:420px">
@@ -577,7 +630,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.53 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.54 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -866,7 +919,12 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
     </div>
     <div style="display:flex;align-items:center;gap:4px">
       <span style="font-size:9px;color:var(--muted);min-width:22px">크기</span>
-      <div class="fspinner"><input type="number" id="fontSizeInput" value="18" min="6" max="300" onchange="updateTextStyle()"><div class="spin-col"><button class="spbtn" onclick="changeFontSize(1)">▲</button><button class="spbtn" onclick="changeFontSize(-1)">▼</button></div></div>
+      <div class="fsize-ctrl">
+        <button class="fsize-btn" onclick="changeFontSize(-1)" ontouchstart="event.preventDefault();changeFontSize(-1)">−</button>
+        <span class="fsize-display" id="fontSizeDisplay" onclick="openFontSizeModal()">18</span>
+        <button class="fsize-btn" onclick="changeFontSize(1)" ontouchstart="event.preventDefault();changeFontSize(1)">＋</button>
+      </div>
+      <input type="hidden" id="fontSizeInput" value="18">
       <span style="font-size:9px;color:var(--muted)">pt</span>
       <div class="vdiv"></div>
       <button class="tsb" data-tip="굵게" data-key="B" id="btn-bold" onclick="toggleTStyle('bold')" style="font-weight:bold">B</button>
@@ -1737,7 +1795,44 @@ function applyEdSt(el){
   el.style.fontWeight=fBold?'bold':'normal';el.style.fontStyle=fItal?'italic':'normal';
   el.style.textDecoration=fUnder?'underline':'none';el.style.color=fgH;
 }
-function changeFontSize(d){const i=document.getElementById('fontSizeInput');i.value=Math.max(6,Math.min(300,(parseInt(i.value)||18)+d));updateTextStyle();}
+function changeFontSize(d){
+  const i=document.getElementById('fontSizeInput');
+  const newVal=Math.max(6,Math.min(300,(parseInt(i.value)||18)+d));
+  i.value=newVal;
+  syncFontSizeUI(newVal);
+  updateTextStyle();
+}
+function syncFontSizeUI(v){
+  document.getElementById('fontSizeDisplay').textContent=v;
+  const modalVal=document.getElementById('fontSizeModalVal');
+  const slider=document.getElementById('fontSizeSlider');
+  if(modalVal) modalVal.textContent=v;
+  if(slider) slider.value=Math.min(120,v);
+}
+function openFontSizeModal(){
+  const cur=parseInt(document.getElementById('fontSizeInput').value)||18;
+  document.getElementById('fontSizeModalVal').textContent=cur;
+  document.getElementById('fontSizeSlider').value=Math.min(120,cur);
+  document.getElementById('fontSizeModal').classList.remove('hidden');
+}
+function closeFontSizeModal(){
+  document.getElementById('fontSizeModal').classList.add('hidden');
+}
+function setFontSizeFromSlider(v){
+  const nv=Math.max(6,Math.min(300,parseInt(v)||18));
+  document.getElementById('fontSizeInput').value=nv;
+  syncFontSizeUI(nv);
+  updateTextStyle();
+}
+function setFontSizeExact(v){
+  document.getElementById('fontSizeInput').value=v;
+  syncFontSizeUI(v);
+  updateTextStyle();
+}
+// 모달 바깥 클릭 시 닫기
+document.getElementById('fontSizeModal').addEventListener('click',e=>{
+  if(e.target.id==='fontSizeModal') closeFontSizeModal();
+});
 function toggleTStyle(s){
   if(s==='bold'){fBold=!fBold;document.getElementById('btn-bold').classList.toggle('active',fBold);}
   if(s==='italic'){fItal=!fItal;document.getElementById('btn-italic').classList.toggle('active',fItal);}
@@ -1820,7 +1915,7 @@ function openTed(x,y,exist=null){
     if(exist._edW) ed.style.width=exist._edW+'px';
     if(exist._edH) ed.style.height=exist._edH+'px';
     if(exist.fontFamily){ fFam=exist.fontFamily; document.getElementById('fontFamily').value=fFam; }
-    if(exist.fontSize)  { fSz=exist.fontSize;    document.getElementById('fontSizeInput').value=fSz; }
+    if(exist.fontSize)  { fSz=exist.fontSize;    document.getElementById('fontSizeInput').value=fSz; syncFontSizeUI(fSz); }
     fBold=!!exist.bold; fItal=!!exist.italic; fUnder=!!exist.underline; fBox=!!exist.box;
     fBoxPad=exist.boxPad??0; fBoxRadius=exist.boxRadius??0; fBoxBorder=exist.boxBorder??1;
     fBoxFill=!!exist.boxFill; fBoxBgColor=exist.boxBgColor||''; fBoxBgAlpha=exist.boxBgAlpha??1;
@@ -2428,7 +2523,7 @@ function selObj(id){
     if(o.strokeWidth)setStrokeUI(o.strokeWidth);
     if(o.type==='text'){
       document.getElementById('fontFamily').value=o.fontFamily||'sans-serif';
-      document.getElementById('fontSizeInput').value=o.fontSize||18;
+      document.getElementById('fontSizeInput').value=o.fontSize||18; syncFontSizeUI(o.fontSize||18);
       fFam=o.fontFamily||'sans-serif';fSz=o.fontSize||18;
       fBold=!!o.bold;fItal=!!o.italic;fUnder=!!o.underline;
       fBox=!!o.box;
@@ -2550,8 +2645,13 @@ HC.addEventListener('dblclick',onDbl);
     const now=Date.now();
     const dx=Math.abs(t.clientX-lastTapX), dy=Math.abs(t.clientY-lastTapY);
     if(now-lastTapTime<300 && dx<20 && dy<20){
+      // 더블탭: 텍스트 편집 모드 진입만 하고 onDown은 호출하지 않음
+      // (onDown을 이어서 호출하면 actTed가 있다는 이유로 즉시 commitT()가 실행되어
+      //  방금 연 편집기가 바로 닫혀버림)
       onDbl(pseudoEvent(t));
       lastTapTime=0;
+      touchActive=false; // 이 터치 시퀀스에서는 더 이상 onMove/onUp도 그리기로 처리하지 않음
+      return;
     } else {
       lastTapTime=now; lastTapX=t.clientX; lastTapY=t.clientY;
     }
