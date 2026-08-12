@@ -146,6 +146,14 @@ select.sel:focus{border-color:var(--accent)}
   background:var(--bar);color:var(--text);font-size:14px;font-weight:600;cursor:pointer;}
 .fsize-preset:hover{background:var(--hover)}
 .fsize-preset:active{background:var(--active,#d0e4ff)}
+.fsize-ctrl-sm{height:22px;}
+.fsize-ctrl-sm .fsize-btn{width:20px;font-size:12px;}
+.fsize-ctrl-sm .fsize-display{min-width:22px;font-size:10px;padding:0 3px;}
+@media (pointer:coarse){
+  .fsize-ctrl-sm{height:30px;}
+  .fsize-ctrl-sm .fsize-btn{width:30px;font-size:15px;}
+  .fsize-ctrl-sm .fsize-display{min-width:28px;font-size:11px;}
+}
 .tsb{width:22px;height:22px;border:1px solid transparent;border-radius:3px;background:transparent;cursor:pointer;font-family:inherit;font-size:12px;display:flex;align-items:center;justify-content:center;color:var(--text)}
 .tsb:hover{background:var(--hover);border-color:var(--border)}.tsb.active{background:var(--active);border-color:var(--accent)}
 .vdiv{width:1px;background:var(--borderl);align-self:stretch;margin:0 2px}
@@ -554,6 +562,32 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
   </div>
 </div>
 
+<!-- 공용 숫자 입력 모달 (선 두께, 박스 옵션, 캔버스 크기 등) -->
+<div class="modal-overlay hidden" id="numModal">
+  <div class="modal" style="width:300px;max-width:88vw">
+    <div class="modal-head"><span id="numModalTitle">값 입력</span>
+      <button class="modal-xbtn" onclick="closeNumModal()">✕</button>
+    </div>
+    <div class="modal-body" style="gap:14px">
+      <div style="display:flex;align-items:center;justify-content:center;gap:14px">
+        <button class="fsize-btn" style="width:44px;height:44px;font-size:22px;border:1px solid var(--border);border-radius:8px"
+          onclick="numModalStep(-1)">−</button>
+        <div style="display:flex;align-items:baseline;gap:4px;min-width:80px;justify-content:center">
+          <span style="font-size:28px;font-weight:700;color:var(--accent)" id="numModalVal">0</span>
+          <span style="font-size:13px;color:var(--muted)" id="numModalUnit">px</span>
+        </div>
+        <button class="fsize-btn" style="width:44px;height:44px;font-size:22px;border:1px solid var(--border);border-radius:8px"
+          onclick="numModalStep(1)">＋</button>
+      </div>
+      <input type="range" id="numModalSlider" min="0" max="100" value="0"
+        style="width:100%;accent-color:var(--accent)" oninput="numModalFromSlider(this.value)">
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ok" onclick="closeNumModal()" style="width:100%">확인</button>
+    </div>
+  </div>
+</div>
+
 <!-- 폰트 크기 선택 모달 (모바일 친화적) -->
 <div class="modal-overlay hidden" id="fontSizeModal">
   <div class="modal" style="width:320px;max-width:90vw">
@@ -630,7 +664,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.54 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.55 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -785,8 +819,20 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
   </div><span class="rs-label">편집</span></div>
   <div class="rs"><div class="rs-body" style="align-items:center;gap:8px">
     <div style="display:flex;flex-direction:column;gap:5px">
-      <div style="display:flex;align-items:center;gap:4px"><span style="font-size:9px;color:var(--muted);min-width:24px">너비</span><input type="number" class="num-input" id="canvasW" value="800" min="1" max="9999" style="width:52px"><span style="font-size:9px;color:var(--muted)">px</span></div>
-      <div style="display:flex;align-items:center;gap:4px"><span style="font-size:9px;color:var(--muted);min-width:24px">높이</span><input type="number" class="num-input" id="canvasH" value="600" min="1" max="9999" style="width:52px"><span style="font-size:9px;color:var(--muted)">px</span></div>
+      <div style="display:flex;align-items:center;gap:4px"><span style="font-size:9px;color:var(--muted);min-width:24px">너비</span>
+        <div class="fsize-ctrl fsize-ctrl-sm">
+          <button class="fsize-btn" onclick="changeCanvasSize('canvasW',-10)" ontouchstart="event.preventDefault();changeCanvasSize('canvasW',-10)">−</button>
+          <span class="fsize-display" id="canvasWDisplay" onclick="openNumModal('canvasW')">800</span>
+          <button class="fsize-btn" onclick="changeCanvasSize('canvasW',10)" ontouchstart="event.preventDefault();changeCanvasSize('canvasW',10)">＋</button>
+        </div>
+        <input type="hidden" id="canvasW" value="800"><span style="font-size:9px;color:var(--muted)">px</span></div>
+      <div style="display:flex;align-items:center;gap:4px"><span style="font-size:9px;color:var(--muted);min-width:24px">높이</span>
+        <div class="fsize-ctrl fsize-ctrl-sm">
+          <button class="fsize-btn" onclick="changeCanvasSize('canvasH',-10)" ontouchstart="event.preventDefault();changeCanvasSize('canvasH',-10)">−</button>
+          <span class="fsize-display" id="canvasHDisplay" onclick="openNumModal('canvasH')">600</span>
+          <button class="fsize-btn" onclick="changeCanvasSize('canvasH',10)" ontouchstart="event.preventDefault();changeCanvasSize('canvasH',10)">＋</button>
+        </div>
+        <input type="hidden" id="canvasH" value="600"><span style="font-size:9px;color:var(--muted)">px</span></div>
     </div>
     <button class="ib" onclick="applyCanvasSize()" style="height:52px;min-width:44px"><svg width="18" height="18" viewBox="0 0 18 18"><polyline points="3,9 7,13 15,5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>적용</button>
   </div><span class="rs-label">캔버스</span></div>
@@ -848,7 +894,12 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <div class="stroke-opt" id="stroke-8" onclick="setStroke(8)"><div class="stroke-line" style="height:8px"></div></div>
     </div>
     <div style="display:flex;align-items:center;gap:3px;align-self:center">
-      <input type="number" class="num-input" id="customStroke" value="1" min="1" max="100" oninput="setStroke(parseInt(this.value)||1)">
+      <div class="fsize-ctrl">
+        <button class="fsize-btn" onclick="changeStroke(-1)" ontouchstart="event.preventDefault();changeStroke(-1)">−</button>
+        <span class="fsize-display" id="strokeDisplay" onclick="openNumModal('stroke')">1</span>
+        <button class="fsize-btn" onclick="changeStroke(1)" ontouchstart="event.preventDefault();changeStroke(1)">＋</button>
+      </div>
+      <input type="hidden" id="customStroke" value="1">
       <span style="font-size:9px;color:var(--muted)">px</span>
     </div>
   </div><span class="rs-label">두께</span></div>
@@ -934,11 +985,26 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <div class="vdiv"></div>
       <div id="box-options" style="display:none;align-items:center;gap:3px">
         <span style="font-size:9px;color:var(--muted)">패딩</span>
-        <input type="number" class="num-input" id="boxPadding" value="6" min="0" max="40" style="width:30px" oninput="updateTextStyle()">
+        <div class="fsize-ctrl fsize-ctrl-sm">
+          <button class="fsize-btn" onclick="changeBoxNum('boxPadding',-1)" ontouchstart="event.preventDefault();changeBoxNum('boxPadding',-1)">−</button>
+          <span class="fsize-display" id="boxPaddingDisplay" onclick="openNumModal('boxPadding')">6</span>
+          <button class="fsize-btn" onclick="changeBoxNum('boxPadding',1)" ontouchstart="event.preventDefault();changeBoxNum('boxPadding',1)">＋</button>
+        </div>
+        <input type="hidden" id="boxPadding" value="6">
         <span style="font-size:9px;color:var(--muted)">반경</span>
-        <input type="number" class="num-input" id="boxRadius" value="0" min="0" max="40" style="width:30px" oninput="updateTextStyle()">
+        <div class="fsize-ctrl fsize-ctrl-sm">
+          <button class="fsize-btn" onclick="changeBoxNum('boxRadius',-1)" ontouchstart="event.preventDefault();changeBoxNum('boxRadius',-1)">−</button>
+          <span class="fsize-display" id="boxRadiusDisplay" onclick="openNumModal('boxRadius')">0</span>
+          <button class="fsize-btn" onclick="changeBoxNum('boxRadius',1)" ontouchstart="event.preventDefault();changeBoxNum('boxRadius',1)">＋</button>
+        </div>
+        <input type="hidden" id="boxRadius" value="0">
         <span style="font-size:9px;color:var(--muted)">두께</span>
-        <input type="number" class="num-input" id="boxBorder" value="1" min="0" max="10" style="width:30px" oninput="updateTextStyle()">
+        <div class="fsize-ctrl fsize-ctrl-sm">
+          <button class="fsize-btn" onclick="changeBoxNum('boxBorder',-1)" ontouchstart="event.preventDefault();changeBoxNum('boxBorder',-1)">−</button>
+          <span class="fsize-display" id="boxBorderDisplay" onclick="openNumModal('boxBorder')">1</span>
+          <button class="fsize-btn" onclick="changeBoxNum('boxBorder',1)" ontouchstart="event.preventDefault();changeBoxNum('boxBorder',1)">＋</button>
+        </div>
+        <input type="hidden" id="boxBorder" value="1">
         <div class="vdiv"></div>
         <label style="font-size:9px;color:var(--muted);display:flex;align-items:center;gap:2px;cursor:pointer">
           <input type="checkbox" id="boxFill" onchange="updateTextStyle()" style="width:11px;height:11px;cursor:pointer">배경
@@ -1758,6 +1824,71 @@ function applyColorToSel(){
 }
 
 // ════════════ TEXT STYLE ════════════
+function changeBoxNum(id,d){
+  const el=document.getElementById(id);
+  const limits={boxPadding:[0,40],boxRadius:[0,40],boxBorder:[0,10]};
+  const [min,max]=limits[id]||[0,100];
+  const nv=Math.max(min,Math.min(max,(parseInt(el.value)||0)+d));
+  el.value=nv;
+  document.getElementById(id+'Display').textContent=nv;
+  updateTextStyle();
+}
+function syncCanvasSizeUI(){
+  const w=document.getElementById('canvasW').value;
+  const h=document.getElementById('canvasH').value;
+  const wd=document.getElementById('canvasWDisplay');
+  const hd=document.getElementById('canvasHDisplay');
+  if(wd)wd.textContent=w;
+  if(hd)hd.textContent=h;
+}
+function changeCanvasSize(id,d){
+  const el=document.getElementById(id);
+  const nv=Math.max(1,Math.min(9999,(parseInt(el.value)||0)+d));
+  el.value=nv;
+  document.getElementById(id+'Display').textContent=nv;
+}
+
+// ── 공용 숫자 입력 모달: 리본의 미니 +/- 컨트롤을 탭하면 정확한 값을 입력할 수 있는 모달
+const NUM_MODAL_CONFIG={
+  stroke:{label:'선 두께',min:1,max:100,unit:'px',getter:()=>parseInt(document.getElementById('customStroke').value)||1,setter:v=>setStroke(v)},
+  boxPadding:{label:'박스 패딩',min:0,max:40,unit:'px',getter:()=>parseInt(document.getElementById('boxPadding').value)||0,setter:v=>{document.getElementById('boxPadding').value=v;document.getElementById('boxPaddingDisplay').textContent=v;updateTextStyle();}},
+  boxRadius:{label:'모서리 반경',min:0,max:40,unit:'px',getter:()=>parseInt(document.getElementById('boxRadius').value)||0,setter:v=>{document.getElementById('boxRadius').value=v;document.getElementById('boxRadiusDisplay').textContent=v;updateTextStyle();}},
+  boxBorder:{label:'테두리 두께',min:0,max:10,unit:'px',getter:()=>parseInt(document.getElementById('boxBorder').value)||1,setter:v=>{document.getElementById('boxBorder').value=v;document.getElementById('boxBorderDisplay').textContent=v;updateTextStyle();}},
+  canvasW:{label:'캔버스 너비',min:1,max:9999,unit:'px',getter:()=>parseInt(document.getElementById('canvasW').value)||800,setter:v=>{document.getElementById('canvasW').value=v;document.getElementById('canvasWDisplay').textContent=v;}},
+  canvasH:{label:'캔버스 높이',min:1,max:9999,unit:'px',getter:()=>parseInt(document.getElementById('canvasH').value)||600,setter:v=>{document.getElementById('canvasH').value=v;document.getElementById('canvasHDisplay').textContent=v;}}
+};
+let _numModalKey=null;
+function openNumModal(key){
+  const cfg=NUM_MODAL_CONFIG[key];
+  if(!cfg)return;
+  _numModalKey=key;
+  const cur=cfg.getter();
+  document.getElementById('numModalTitle').textContent=cfg.label;
+  document.getElementById('numModalVal').textContent=cur;
+  document.getElementById('numModalUnit').textContent=cfg.unit;
+  const slider=document.getElementById('numModalSlider');
+  slider.min=cfg.min;slider.max=cfg.max;slider.value=cur;
+  document.getElementById('numModal').classList.remove('hidden');
+}
+function closeNumModal(){document.getElementById('numModal').classList.add('hidden');}
+function numModalStep(d){
+  const cfg=NUM_MODAL_CONFIG[_numModalKey];if(!cfg)return;
+  const cur=parseInt(document.getElementById('numModalVal').textContent)||0;
+  const nv=Math.max(cfg.min,Math.min(cfg.max,cur+d));
+  document.getElementById('numModalVal').textContent=nv;
+  document.getElementById('numModalSlider').value=nv;
+  cfg.setter(nv);
+}
+function numModalFromSlider(v){
+  const cfg=NUM_MODAL_CONFIG[_numModalKey];if(!cfg)return;
+  const nv=Math.max(cfg.min,Math.min(cfg.max,parseInt(v)||0));
+  document.getElementById('numModalVal').textContent=nv;
+  cfg.setter(nv);
+}
+document.getElementById('numModal').addEventListener('click',e=>{
+  if(e.target.id==='numModal') closeNumModal();
+});
+
 function updateTextStyle(){
   fFam=document.getElementById('fontFamily').value;
   fSz=parseInt(document.getElementById('fontSizeInput').value)||18;
@@ -1877,7 +2008,12 @@ function setStroke(w){
   document.querySelectorAll('.stroke-opt').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('#stroke-'+w+',#stroke-'+w+'b').forEach(el=>el.classList.add('active'));
   ['customStroke','customStroke2'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=w;});
+  const sd=document.getElementById('strokeDisplay');if(sd)sd.textContent=w;
   if(selId){const o=objs.find(x=>x.id===selId);if(o&&(o.type==='stroke'||o.type==='shape')){o.strokeWidth=w;renderAll();saveHDebounced();}}
+}
+function changeStroke(d){
+  const cur=parseInt(document.getElementById('customStroke').value)||1;
+  setStroke(Math.max(1,Math.min(100,cur+d)));
 }
 
 // ── 선택된 도형의 채우기 상태 변경
@@ -1919,6 +2055,9 @@ function openTed(x,y,exist=null){
     fBold=!!exist.bold; fItal=!!exist.italic; fUnder=!!exist.underline; fBox=!!exist.box;
     fBoxPad=exist.boxPad??0; fBoxRadius=exist.boxRadius??0; fBoxBorder=exist.boxBorder??1;
     fBoxFill=!!exist.boxFill; fBoxBgColor=exist.boxBgColor||''; fBoxBgAlpha=exist.boxBgAlpha??1;
+    document.getElementById('boxPadding').value=fBoxPad; document.getElementById('boxPaddingDisplay').textContent=fBoxPad;
+    document.getElementById('boxRadius').value=fBoxRadius; document.getElementById('boxRadiusDisplay').textContent=fBoxRadius;
+    document.getElementById('boxBorder').value=fBoxBorder; document.getElementById('boxBorderDisplay').textContent=fBoxBorder;
     document.getElementById('btn-bold').classList.toggle('active',fBold);
     document.getElementById('btn-italic').classList.toggle('active',fItal);
     document.getElementById('btn-underline').classList.toggle('active',fUnder);
@@ -2529,6 +2668,9 @@ function selObj(id){
       fBox=!!o.box;
       fBoxPad=o.boxPad??6;fBoxRadius=o.boxRadius??0;fBoxBorder=o.boxBorder??1;fBoxFill=!!o.boxFill;
       fBoxBgColor=o.boxBgColor||''; fBoxBgAlpha=o.boxBgAlpha!=null?o.boxBgAlpha:1;
+      document.getElementById('boxPadding').value=fBoxPad; document.getElementById('boxPaddingDisplay').textContent=fBoxPad;
+      document.getElementById('boxRadius').value=fBoxRadius; document.getElementById('boxRadiusDisplay').textContent=fBoxRadius;
+      document.getElementById('boxBorder').value=fBoxBorder; document.getElementById('boxBorderDisplay').textContent=fBoxBorder;
       document.getElementById('btn-bold').classList.toggle('active',fBold);
       document.getElementById('btn-italic').classList.toggle('active',fItal);
       document.getElementById('btn-underline').classList.toggle('active',fUnder);
@@ -2936,12 +3078,14 @@ document.addEventListener('mouseup',()=>{
   if(resC){ resC=false; resOrigObjs=null;
     document.getElementById('canvasW').value=CW;
     document.getElementById('canvasH').value=CH;
+    syncCanvasSizeUI();
     saveH(); }
 });
 document.addEventListener('touchend',()=>{
   if(resC){ resC=false; resOrigObjs=null;
     document.getElementById('canvasW').value=CW;
     document.getElementById('canvasH').value=CH;
+    syncCanvasSizeUI();
     saveH(); }
 });
 
@@ -3094,7 +3238,7 @@ function doNewFile(){
   objs=[];selId=null;undoSt=[];redoSt=[];curFile=null;isDirty=false;
   oidSeq=0; // id 시퀀스 초기화 (새 파일이므로 충돌 위험 없음)
   setCS(800,600);document.getElementById('titleText').textContent='제목 없음 - Easy Paint Pad';
-  document.getElementById('canvasW').value=800;document.getElementById('canvasH').value=600;
+  document.getElementById('canvasW').value=800;document.getElementById('canvasH').value=600;syncCanvasSizeUI();
   clearSel();refreshList();
 }
 function printCanvas(){
@@ -3145,6 +3289,7 @@ function loadImageFile(file){
       setCS(img.width,img.height);
       document.getElementById('canvasW').value=img.width;
       document.getElementById('canvasH').value=img.height;
+      syncCanvasSizeUI();
       objs=[];undoSt=[];redoSt=[];isDirty=false;
       oidSeq=0; // 새 이미지로 시작하므로 id 시퀀스 초기화
       objs.push({id:mkId(),type:'image',img,x:0,y:0,w:img.width,h:img.height,alpha:1});
@@ -3620,6 +3765,7 @@ function loadEPP(file){
       setCS(nW,nH);
       document.getElementById('canvasW').value=nW;
       document.getElementById('canvasH').value=nH;
+      syncCanvasSizeUI();
 
       // 객체 복원 (image 타입은 _src→img 재생성)
       const loadedObjs=project.objs;
@@ -3735,6 +3881,7 @@ function executeResize(){
     setCS(nW,nH);
     document.getElementById('canvasW').value=nW;
     document.getElementById('canvasH').value=nH;
+    syncCanvasSizeUI();
     saveH(); isDirty=true;
     const t=document.getElementById('titleText');
     if(t&&!t.textContent.startsWith('●')) t.textContent='● '+t.textContent;
