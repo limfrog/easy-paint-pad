@@ -6,7 +6,6 @@
   "display": "standalone",
   "background_color": "#f0f0f0",
   "theme_color": "#2563C7",
-  "orientation": "landscape",
   "icons": [
     {
       "src": "icon-192.png",
@@ -27,5 +26,5 @@
     "utilities"
   ],
   "lang": "ko",
-  "version": "0.9.5"
+  "version": "1.6.1"
 }
