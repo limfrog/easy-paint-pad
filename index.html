@@ -13,8 +13,8 @@
     object-src 'none';
     base-uri 'self';
   ">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#0078d4">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#2563C7">
 <meta name="description" content="브라우저에서 바로 사용하는 그림판 앱">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -43,11 +43,15 @@
 body { font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;
   background:var(--bg); display:flex; flex-direction:column;
   height:100vh; height:calc(var(--vh, 1vh) * 100); overflow:hidden; color:var(--text); font-size:12px; user-select:none;
-  overscroll-behavior:none; -webkit-tap-highlight-color:transparent; touch-action:none; }
+  overscroll-behavior:none; -webkit-tap-highlight-color:transparent; touch-action:none;
+  padding-left:env(safe-area-inset-left,0);
+  padding-right:env(safe-area-inset-right,0);
+  box-sizing:border-box; }
 #hitCanvas{touch-action:none;}
 .canvas-area{touch-action:pan-x pan-y;}
 .title-bar { background:var(--bar); height:36px; display:flex; align-items:center;
-  padding:0 12px; border-bottom:1px solid var(--border); flex-shrink:0; gap:8px; }
+  padding:0 12px; padding-top:env(safe-area-inset-top,0); height:calc(36px + env(safe-area-inset-top,0));
+  border-bottom:1px solid var(--border); flex-shrink:0; gap:8px; box-sizing:border-box; }
 .title-text { flex:1; text-align:center; font-size:13px; font-weight:500; }
 .tab-bar { background:var(--bar); display:flex; align-items:flex-end;
   padding:0 8px; border-bottom:1px solid var(--border); flex-shrink:0; gap:1px; height:30px; }
@@ -194,7 +198,8 @@ select.sel:focus{border-color:var(--accent)}
   .canvas-area{padding:10px;-webkit-overflow-scrolling:touch;}
 
   /* 상태바: 모바일에서 핵심 정보만 표시, 나머지는 숨기거나 줄바꿈 처리 */
-  .statusbar{height:auto;min-height:26px;font-size:10px;padding:4px 8px;gap:6px;
+  .statusbar{height:auto;min-height:26px;font-size:10px;padding:4px 8px;
+    padding-bottom:calc(4px + env(safe-area-inset-bottom,0));gap:6px;
     flex-wrap:wrap;row-gap:2px;}
   .statusbar #statusPos{display:none;}
   .statusbar #statusHint{display:none;}
@@ -219,7 +224,7 @@ select.sel:focus{border-color:var(--accent)}
   .obj-panel{width:85vw;}
   /* 좁은 화면: 상태바에서 캔버스 크기 정보도 숨기고 도구명 + 줌만 표시 */
   .statusbar #statusSize{display:none;}
-  .statusbar{padding:4px 6px;gap:4px;}
+  .statusbar{padding:4px 6px;padding-bottom:calc(4px + env(safe-area-inset-bottom,0));gap:4px;}
 }
 
 /* ═══ 터치 디바이스: 핸들/버튼 타겟 확대 ═══ */
@@ -267,7 +272,7 @@ select.sel:focus{border-color:var(--accent)}
 .obj-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px}
 .obj-del{opacity:0;cursor:pointer;font-size:10px;color:#c00;padding:1px 3px;border-radius:3px;flex-shrink:0}
 .obj-item:hover .obj-del{opacity:1}
-.statusbar{height:22px;background:#ebebeb;border-top:1px solid var(--border);display:flex;align-items:center;padding:0 10px;gap:16px;font-size:11px;color:var(--muted);flex-shrink:0}
+.statusbar{height:22px;background:#ebebeb;border-top:1px solid var(--border);display:flex;align-items:center;padding:0 10px;padding-bottom:env(safe-area-inset-bottom,0);height:calc(22px + env(safe-area-inset-bottom,0));box-sizing:border-box;gap:16px;font-size:11px;color:var(--muted);flex-shrink:0}
 .zoom-ctrl{display:flex;align-items:center;gap:4px;margin-left:auto}
 .zbtn{width:18px;height:18px;border:1px solid var(--border);border-radius:3px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px}
 .zbtn:hover{background:var(--hover)}
@@ -664,7 +669,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.55 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
