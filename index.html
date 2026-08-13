@@ -1035,12 +1035,12 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <div class="vdiv" style="margin:0 4px"></div>
       <div class="custom-slots" id="cs1Slots">
         <div style="display:flex;gap:3px">
-          <div class="cslot" onclick="clickCSlot(0,'cs1',event)" ondblclick="clickCSlot(0,'cs1',event)" oncontextmenu="clickCSlot(0,'cs1',event);return false;" title="클릭: 전경색 적용 · 더블클릭: 색상 편집 · 우클릭: 배경색 적용"><div class="cslot-inner" id="cs1SI0"></div><div class="cslot-plus" id="cs1SP0">+</div></div>
-          <div class="cslot" onclick="clickCSlot(1,'cs1',event)" ondblclick="clickCSlot(1,'cs1',event)" oncontextmenu="clickCSlot(1,'cs1',event);return false;" title="클릭: 전경색 적용 · 더블클릭: 색상 편집 · 우클릭: 배경색 적용"><div class="cslot-inner" id="cs1SI1"></div><div class="cslot-plus" id="cs1SP1">+</div></div>
+          <div class="cslot" onclick="clickCSlot(0,'cs1',event)" ondblclick="clickCSlot(0,'cs1',event)" oncontextmenu="clickCSlot(0,'cs1',event);return false;" title="클릭: 전경색 적용 · 더블클릭/길게누르기: 색상 편집 · 우클릭: 배경색 적용"><div class="cslot-inner" id="cs1SI0"></div><div class="cslot-plus" id="cs1SP0">+</div></div>
+          <div class="cslot" onclick="clickCSlot(1,'cs1',event)" ondblclick="clickCSlot(1,'cs1',event)" oncontextmenu="clickCSlot(1,'cs1',event);return false;" title="클릭: 전경색 적용 · 더블클릭/길게누르기: 색상 편집 · 우클릭: 배경색 적용"><div class="cslot-inner" id="cs1SI1"></div><div class="cslot-plus" id="cs1SP1">+</div></div>
         </div>
         <div style="display:flex;gap:3px">
-          <div class="cslot" onclick="clickCSlot(2,'cs1',event)" ondblclick="clickCSlot(2,'cs1',event)" oncontextmenu="clickCSlot(2,'cs1',event);return false;" title="클릭: 전경색 적용 · 더블클릭: 색상 편집 · 우클릭: 배경색 적용"><div class="cslot-inner" id="cs1SI2"></div><div class="cslot-plus" id="cs1SP2">+</div></div>
-          <div class="cslot" onclick="clickCSlot(3,'cs1',event)" ondblclick="clickCSlot(3,'cs1',event)" oncontextmenu="clickCSlot(3,'cs1',event);return false;" title="클릭: 전경색 적용 · 더블클릭: 색상 편집 · 우클릭: 배경색 적용"><div class="cslot-inner" id="cs1SI3"></div><div class="cslot-plus" id="cs1SP3">+</div></div>
+          <div class="cslot" onclick="clickCSlot(2,'cs1',event)" ondblclick="clickCSlot(2,'cs1',event)" oncontextmenu="clickCSlot(2,'cs1',event);return false;" title="클릭: 전경색 적용 · 더블클릭/길게누르기: 색상 편집 · 우클릭: 배경색 적용"><div class="cslot-inner" id="cs1SI2"></div><div class="cslot-plus" id="cs1SP2">+</div></div>
+          <div class="cslot" onclick="clickCSlot(3,'cs1',event)" ondblclick="clickCSlot(3,'cs1',event)" oncontextmenu="clickCSlot(3,'cs1',event);return false;" title="클릭: 전경색 적용 · 더블클릭/길게누르기: 색상 편집 · 우클릭: 배경색 적용"><div class="cslot-inner" id="cs1SI3"></div><div class="cslot-plus" id="cs1SP3">+</div></div>
         </div>
       </div>
       <span class="cs-label">팔레트</span>
@@ -1678,6 +1678,39 @@ function updCSlots(){
 let cpTgt='fg', cpCSlotIdx=-1;
 // 모바일(터치 기반) 환경 감지: 네이티브 color input 대신 큰 팔레트 모달 사용
 const IS_TOUCH_DEVICE = window.matchMedia('(pointer:coarse)').matches;
+
+// ── 모바일: 커스텀 슬롯 롱프레스로 색상 편집 (더블탭은 모바일에서 불안정하므로 대체)
+if(IS_TOUCH_DEVICE){
+  document.addEventListener('DOMContentLoaded', initCSlotLongPress);
+  if(document.readyState!=='loading') initCSlotLongPress();
+}
+function initCSlotLongPress(){
+  document.querySelectorAll('.cslot').forEach(el=>{
+    let pressTimer=null, longPressed=false, startX=0, startY=0;
+    el.addEventListener('touchstart', e=>{
+      longPressed=false;
+      const t=e.touches[0];
+      startX=t.clientX; startY=t.clientY;
+      pressTimer=setTimeout(()=>{
+        longPressed=true;
+        if(navigator.vibrate) navigator.vibrate(15); // 롱프레스 진입 촉각 피드백(지원 기기만)
+        el.dispatchEvent(new Event('dblclick', {bubbles:true, cancelable:true}));
+      }, 500);
+    }, {passive:true});
+    el.addEventListener('touchmove', e=>{
+      const t=e.touches[0];
+      if(Math.abs(t.clientX-startX)>10 || Math.abs(t.clientY-startY)>10){
+        clearTimeout(pressTimer); // 손가락이 움직이면 롱프레스 취소
+      }
+    }, {passive:true});
+    el.addEventListener('touchend', ()=>{ clearTimeout(pressTimer); });
+    el.addEventListener('touchcancel', ()=>{ clearTimeout(pressTimer); });
+    // 롱프레스가 발동된 경우, 뒤이어 브라우저가 자동 발생시키는 click(=일반 클릭)을 캡처 단계에서 차단
+    el.addEventListener('click', e=>{
+      if(longPressed){ e.stopPropagation(); e.preventDefault(); longPressed=false; }
+    }, true);
+  });
+}
 
 function chooseColor(t){
   cpTgt=t;cpCSlotIdx=-1;
