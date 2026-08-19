@@ -669,7 +669,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.5 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.7 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -1205,14 +1205,20 @@ function saveH(){
     if(t&&!t.textContent.startsWith('●')) t.textContent='● '+t.textContent;
   }
 }
+// undoSt의 맨 위(마지막 항목)는 항상 "현재 상태"와 같다(saveH가 변경 직후에 push하기 때문).
+// 따라서 이전 상태로 돌아가려면 맨 위를 꺼내 redo용으로 치워두고, 그 아래(새로운 맨 위)를
+// pop하지 않고 그대로 복원해야 한다 — pop 후 복원하면 방금 꺼낸 "현재 상태"를 다시 복원하는
+// 셈이 되어 첫 undo가 아무 변화 없이 스택만 소모하는 버그가 생긴다.
 function undo(){
-  if(!undoSt.length)return;
-  redoSt.push(snapObjs()); restoreObjs(undoSt.pop());
+  if(undoSt.length<2)return; // 현재 상태 포함 최소 2개는 있어야 이전 상태로 갈 수 있음
+  redoSt.push(undoSt.pop());
+  restoreObjs(undoSt[undoSt.length-1]);
   selId=null;marqueSnap=null;marqueRect=null;marqueIds=[];marqueCommitted=false;clearSel();drawMarque();renderAll();refreshList();
 }
 function redo(){
   if(!redoSt.length)return;
-  undoSt.push(snapObjs()); restoreObjs(redoSt.pop());
+  undoSt.push(redoSt.pop());
+  restoreObjs(undoSt[undoSt.length-1]);
   selId=null;marqueSnap=null;marqueRect=null;marqueIds=[];marqueCommitted=false;clearSel();drawMarque();renderAll();refreshList();
 }
 
@@ -1430,7 +1436,11 @@ function hitTest(x,y){
   const d=ox.getImageData(px,py,1,1).data;
   if(d[3]<10)return null;
   const id=c2id(d[0],d[1],d[2]);
-  return objs.find(o=>o.id===id)||null;
+  const hitObj=objs.find(o=>o.id===id)||null;
+  // 기본 바탕 이미지는 화면 클릭/드래그로 선택되지 않게 함(오른쪽 객체목록에서만 선택 가능)
+  // → 바탕 이미지 위 빈 공간을 드래그하면 이동이 아니라 다중선택 마퀴로 동작
+  if(hitObj&&hitObj.isBackground) return null;
+  return hitObj;
 }
 
 // ════════════ BOUNDS ════════════
@@ -1554,6 +1564,7 @@ function finishSelMarquee(){
 
   const hitIds=[];
   objs.forEach(o=>{
+    if(o.isBackground) return; // 바탕 이미지는 항상 캔버스 전체를 덮으므로 마퀴 선택에서 제외
     const b=getBounds(o);
     if(!b) return;
     // 교차 판정: 사각형과 객체 바운딩박스가 조금이라도 겹치면 선택
@@ -2984,6 +2995,7 @@ document.addEventListener('mousemove',e=>{
 // contextmenu handled below
 
 function onDown(e){
+  if(spaceKeyDown) return; // Space+드래그(캔버스 팬) 중에는 현재 도구의 동작을 실행하지 않음
   const{x,y}=getPos(e);const xi=Math.round(x),yi=Math.round(y);
   lastClickX=xi; lastClickY=yi; // 클릭 위치 기록
 
@@ -3064,11 +3076,18 @@ function onDown(e){
       if(!(e.ctrlKey||e.metaKey)) HC.style.cursor='move';
     }
     else{
-      // 빈 공간 드래그 시작: 영역선택(마퀴)으로 다중 선택 준비
-      if(!e.shiftKey){ selId=null; selIds=[]; }
-      clearSel();document.getElementById('statusObj').textContent='';refreshList();
-      selMarqueeActive=true;selMarqueeSX=xi;selMarqueeSY=yi;
-      selMarqueeRect={x:xi,y:yi,w:0,h:0};
+      // 배경 이미지가 오른쪽 목록에서 이미 선택된 상태라면, 그 선택이 풀리기 전까지는
+      // 캔버스 드래그로도 이동 가능하게 함(마퀴 시작으로 처리하지 않음)
+      const selBg = selId!=null && objs.find(o=>o.id===selId && o.isBackground);
+      if(selBg && !e.shiftKey){
+        dragging=true; dragLX=x; dragLY=y; HC.style.cursor='move';
+      } else {
+        // 빈 공간 드래그 시작: 영역선택(마퀴)으로 다중 선택 준비
+        if(!e.shiftKey){ selId=null; selIds=[]; }
+        clearSel();document.getElementById('statusObj').textContent='';refreshList();
+        selMarqueeActive=true;selMarqueeSX=xi;selMarqueeSY=yi;
+        selMarqueeRect={x:xi,y:yi,w:0,h:0};
+      }
     }
     return;
   }
@@ -3142,7 +3161,10 @@ function onMove(e){
     return;
   }
 
-  if(tool==='select2'&&!dragging&&!spaceKeyDown&&!spacePanActive)HC.style.cursor=hitTest(xi,yi)?'move':'default';
+  if(tool==='select2'&&!dragging&&!spaceKeyDown&&!spacePanActive){
+    const selBg = selId!=null && objs.find(o=>o.id===selId && o.isBackground);
+    HC.style.cursor=(hitTest(xi,yi)||selBg)?'move':'default';
+  }
   if(dragging&&selId){
     const dx=x-dragLX,dy=y-dragLY;dragLX=x;dragLY=y;
     if(selIds.length>1){
@@ -3384,10 +3406,9 @@ function setCS(w,h){
 function applyCanvasSize(){setCS(parseInt(document.getElementById('canvasW').value)||800,parseInt(document.getElementById('canvasH').value)||600);}
 
 // ════════════ ZOOM ════════════
-let canvasOffsetX=0, canvasOffsetY=0; // Space+드래그로 조정하는 캔버스 배치 위치(작업영역 내)
 function applyCanvasTransform(){
   const w=document.getElementById('canvasWrapper');
-  w.style.transform=`translate(${canvasOffsetX}px, ${canvasOffsetY}px) scale(${zoom})`;
+  w.style.transform=`scale(${zoom})`;
   w.style.transformOrigin='top left';
 }
 function setZoom(z){
@@ -3404,8 +3425,11 @@ function changeZoom(d){setZoom(zoom+d);}
 function fitToWindow(){const a=document.getElementById('canvasArea');setZoom(Math.min((a.clientWidth-40)/CW,(a.clientHeight-40)/CH));}
 document.getElementById('canvasArea').addEventListener('wheel',e=>{if(e.metaKey||e.ctrlKey){e.preventDefault();changeZoom(e.deltaY<0?.1:-.1);}},{passive:false});
 
-// ── Space+드래그: 작업영역 내에서 캔버스 배치 위치 이동
-let spacePanActive=false, spacePanSX=0, spacePanSY=0, spacePanOX=0, spacePanOY=0;
+// ── Space+드래그: 작업영역 스크롤로 캔버스 위치 이동
+// (이전엔 canvasWrapper에 transform:translate()를 적용했으나, overflow:auto 컨테이너 안에서
+//  transform 기반 이동이 브라우저 스크롤 앵커링과 충돌해 드래그 방향이 뒤집히는 문제가 있었음.
+//  네이티브 scrollLeft/scrollTop을 직접 조정하는 방식으로 교체 — 핀치줌 코드와 동일한 접근)
+let spacePanActive=false, spacePanLX=0, spacePanLY=0;
 let spaceKeyDown=false;
 document.addEventListener('keydown', e=>{
   if(e.code==='Space' && !actTed && !spaceKeyDown){
@@ -3427,16 +3451,18 @@ HC.addEventListener('mousedown', e=>{
   if(spaceKeyDown){
     e.preventDefault(); e.stopPropagation();
     spacePanActive=true;
-    spacePanSX=e.clientX; spacePanSY=e.clientY;
-    spacePanOX=canvasOffsetX; spacePanOY=canvasOffsetY;
+    spacePanLX=e.clientX; spacePanLY=e.clientY;
     HC.style.cursor='grabbing';
   }
 }, true); // capture 단계에서 먼저 가로채 다른 도구 동작(그리기 등)을 막음
 document.addEventListener('mousemove', e=>{
   if(!spacePanActive) return;
-  canvasOffsetX = spacePanOX + (e.clientX - spacePanSX);
-  canvasOffsetY = spacePanOY + (e.clientY - spacePanSY);
-  applyCanvasTransform();
+  const area=document.getElementById('canvasArea');
+  // 마우스가 아래로 움직이면(dy>0) 손으로 종이를 아래로 끄는 것과 같으므로
+  // 화면에 보이는 위쪽 내용이 드러나야 함 → scrollTop을 그만큼 줄인다
+  area.scrollLeft -= (e.clientX - spacePanLX);
+  area.scrollTop  -= (e.clientY - spacePanLY);
+  spacePanLX=e.clientX; spacePanLY=e.clientY;
 });
 document.addEventListener('mouseup', ()=>{
   if(spacePanActive){
@@ -3480,6 +3506,7 @@ function doNewFile(){
   setCS(800,600);document.getElementById('titleText').textContent='제목 없음 - Easy Paint Pad';
   document.getElementById('canvasW').value=800;document.getElementById('canvasH').value=600;syncCanvasSizeUI();
   clearSel();refreshList();
+  saveH();isDirty=false; // 빈 캔버스를 기준 상태로 기록해야 첫 획도 undo 가능
 }
 function printCanvas(){
   const dataUrl = flatten().toDataURL('image/png');
@@ -3532,7 +3559,7 @@ function loadImageFile(file){
       syncCanvasSizeUI();
       objs=[];undoSt=[];redoSt=[];isDirty=false;
       oidSeq=0; // 새 이미지로 시작하므로 id 시퀀스 초기화
-      objs.push({id:mkId(),type:'image',img,x:0,y:0,w:img.width,h:img.height,alpha:1});
+      objs.push({id:mkId(),type:'image',img,x:0,y:0,w:img.width,h:img.height,alpha:1,isBackground:true});
       saveH();setZoom(1);
       isDirty=false; // saveH가 dirty로 만들었으므로 다시 리셋
     };
@@ -3994,6 +4021,13 @@ function saveEPP(){
 
 function loadEPP(file){
   if(!file) return;
+  // 이전 버전에서 저장된 EPP는 isBackground 플래그가 없으므로,
+  // 아무 객체도 배경으로 표시돼 있지 않으면 가장 아래(첫 번째) 이미지 객체를 배경으로 간주
+  function ensureBackgroundFlag(list){
+    if(list.some(o=>o.isBackground)) return;
+    const firstImg=list.find(o=>o.type==='image');
+    if(firstImg) firstImg.isBackground=true;
+  }
   const rd=new FileReader();
   rd.onload=ev=>{
     try{
@@ -4013,6 +4047,7 @@ function loadEPP(file){
 
       if(pending===0){
         objs=loadedObjs;
+        ensureBackgroundFlag(objs);
         resyncOidSeq(); // id 충돌 방지: 로드된 객체의 최대 id 이상으로 시퀀스 재설정
         undoSt=[];redoSt=[];isDirty=false;
         curFile=project.meta?.title||file.name;
@@ -4035,6 +4070,7 @@ function loadEPP(file){
             done++;
             if(done>=pending){
               objs=loadedObjs;
+              ensureBackgroundFlag(objs);
               resyncOidSeq();
               undoSt=[];redoSt=[];isDirty=false;
               curFile=project.meta?.title||file.name;
@@ -4049,8 +4085,10 @@ function loadEPP(file){
             delete o._src;done++;
             if(done>=pending){
               objs=loadedObjs;
+              ensureBackgroundFlag(objs);
               resyncOidSeq();
               undoSt=[];redoSt=[];isDirty=false;
+              saveH();isDirty=false;
               renderAll();refreshList();
             }
           };
