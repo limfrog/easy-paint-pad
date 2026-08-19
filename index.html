@@ -669,7 +669,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.2 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.3 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -1165,6 +1165,8 @@ let CW=800,CH=600,zoom=1;
 
 // ════════════ OBJECT MODEL ════════════
 let objs=[],oidSeq=0,selId=null,undoSt=[],redoSt=[],clip=null;
+let selIds=[]; // 다중 선택된 객체 id 목록 (select2 드래그 영역선택용). selId는 항상 selIds의 마지막 항목과 동기화
+let selMarqueeActive=false, selMarqueeSX=0, selMarqueeSY=0, selMarqueeRect=null;
 let lastCopyType=null; // 'object' | 'pixel' — 가장 최근 복사한 클립보드 종류 추적
 function mkId(){return++oidSeq;}
 // objs 내 가장 큰 id보다 oidSeq를 크게 맞춰서 이후 mkId()가 중복 id를 만들지 않도록 함
@@ -1467,10 +1469,42 @@ function getHitBounds(o){
 // ════════════ SELECTION SVG ════════════
 function drawSel(){
   SV.innerHTML='';
+  const ns='http://www.w3.org/2000/svg';
+
+  // 다중 선택: 각 객체에 얇은 점선 박스 + 전체를 감싸는 바운딩 박스(핸들 없음, 이동만 가능)
+  if(selIds.length>1){
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    selIds.forEach(id=>{
+      const o=objs.find(x=>x.id===id);if(!o)return;
+      const b=getBounds(o);if(!b)return;
+      const r=document.createElementNS(ns,'rect');
+      r.setAttribute('x',b.x-3);r.setAttribute('y',b.y-3);
+      r.setAttribute('width',b.w+6);r.setAttribute('height',b.h+6);
+      r.setAttribute('fill','none');r.setAttribute('stroke','#0078d4');
+      r.setAttribute('stroke-width','1');r.setAttribute('stroke-dasharray','3,2');
+      r.setAttribute('opacity','0.6');
+      r.style.pointerEvents='none';
+      SV.appendChild(r);
+      minX=Math.min(minX,b.x);minY=Math.min(minY,b.y);
+      maxX=Math.max(maxX,b.x+b.w);maxY=Math.max(maxY,b.y+b.h);
+    });
+    if(minX<Infinity){
+      const pd=8;
+      const br=document.createElementNS(ns,'rect');
+      br.setAttribute('x',minX-pd);br.setAttribute('y',minY-pd);
+      br.setAttribute('width',maxX-minX+pd*2);br.setAttribute('height',maxY-minY+pd*2);
+      br.setAttribute('fill','none');br.setAttribute('stroke','#0078d4');
+      br.setAttribute('stroke-width','2');br.setAttribute('stroke-dasharray','7,4');
+      br.style.pointerEvents='none';
+      SV.appendChild(br);
+    }
+    return;
+  }
+
+  // 단일 선택: 기존과 동일하게 리사이즈 핸들 포함 표시
   if(!selId)return;
   const o=objs.find(x=>x.id===selId);if(!o)return;
   const b=getBounds(o),pd=6,x=b.x-pd,y=b.y-pd,w=b.w+pd*2,h=b.h+pd*2;
-  const ns='http://www.w3.org/2000/svg';
   // dashed border — pointer-events:none so it doesn't block HC
   const r=document.createElementNS(ns,'rect');
   r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',w);r.setAttribute('height',h);
@@ -1487,7 +1521,56 @@ function drawSel(){
     hr.dataset.hi=i;SV.appendChild(hr);
   });
 }
-function clearSel(){SV.innerHTML='';}
+function clearSel(){SV.innerHTML='';selIds=[];}
+
+// ── select2 다중 선택 드래그 사각형 표시
+function drawSelMarquee(){
+  let el=document.getElementById('svgSelMarquee');
+  if(!selMarqueeRect){
+    if(el) el.remove();
+    return;
+  }
+  const ns='http://www.w3.org/2000/svg';
+  if(!el){el=document.createElementNS(ns,'rect');el.id='svgSelMarquee';SV.appendChild(el);}
+  const{x,y,w,h}=selMarqueeRect;
+  el.setAttribute('x',Math.min(x,x+w));el.setAttribute('y',Math.min(y,y+h));
+  el.setAttribute('width',Math.abs(w));el.setAttribute('height',Math.abs(h));
+  el.setAttribute('fill','rgba(0,120,212,0.08)');
+  el.setAttribute('stroke','#0078d4');el.setAttribute('stroke-width','1.2');
+  el.setAttribute('stroke-dasharray','5,3');el.style.pointerEvents='none';
+}
+// 드래그 영역과 겹치는(교차하는) 모든 객체를 찾아 selIds에 반영
+function finishSelMarquee(){
+  const el=document.getElementById('svgSelMarquee');
+  if(el) el.remove();
+  if(!selMarqueeRect){ selMarqueeActive=false; return; }
+  const rx=Math.min(selMarqueeRect.x, selMarqueeRect.x+selMarqueeRect.w);
+  const ry=Math.min(selMarqueeRect.y, selMarqueeRect.y+selMarqueeRect.h);
+  const rw=Math.abs(selMarqueeRect.w), rh=Math.abs(selMarqueeRect.h);
+  selMarqueeActive=false;
+  const draggedEnough = rw>3 || rh>3;
+  selMarqueeRect=null;
+  if(!draggedEnough) return; // 그냥 클릭한 경우(드래그 없음) → 아무것도 선택 안 함
+
+  const hitIds=[];
+  objs.forEach(o=>{
+    const b=getBounds(o);
+    if(!b) return;
+    // 교차 판정: 사각형과 객체 바운딩박스가 조금이라도 겹치면 선택
+    const overlap = b.x < rx+rw && b.x+b.w > rx && b.y < ry+rh && b.y+b.h > ry;
+    if(overlap) hitIds.push(o.id);
+  });
+  if(hitIds.length){
+    selIds = hitIds;
+    selId = hitIds[hitIds.length-1];
+    drawSel();
+    document.getElementById('statusObj').textContent = `${hitIds.length}개 객체 선택됨`;
+  } else {
+    selIds=[]; selId=null; clearSel();
+    document.getElementById('statusObj').textContent='';
+  }
+  refreshList();
+}
 
 // ════════════ SVG RESIZE ════════════
 let svgR=false,svgHi=-1,svgSX=0,svgSY=0,svgOrigO=null,svgOrigB=null;
@@ -2320,7 +2403,27 @@ function pasteClipboard(){
   else{c.x+=20;c.y+=20;}
   objs.push(c);saveH();selObj(c.id);
 }
-function duplicateSelected(){copySelected();pasteClipboard();}
+function duplicateSelected(){
+  if(selIds.length>1){
+    const newIds=[];
+    selIds.forEach(id=>{
+      const o=objs.find(x=>x.id===id);
+      if(!o)return;
+      const c=JSON.parse(JSON.stringify(o));c.id=mkId();
+      if(c.type==='stroke')c.points=c.points.map(p=>({x:p.x+20,y:p.y+20}));
+      else if(c.type==='shape'){c.x1+=20;c.y1+=20;c.x2+=20;c.y2+=20;}
+      else{c.x+=20;c.y+=20;}
+      if(c.type==='image'&&o.img)c.img=o.img;
+      objs.push(c);
+      newIds.push(c.id);
+    });
+    saveH();
+    selIds=newIds;selId=newIds[newIds.length-1];
+    drawSel();refreshList();
+    return;
+  }
+  copySelected();pasteClipboard();
+}
 function duplicateInPlace(){
   // Ctrl+드래그용: 오프셋 없이 같은 위치에 복제
   if(!selId)return;
@@ -2693,7 +2796,7 @@ function moveLayerDown(){if(!selId)return;const i=objs.findIndex(x=>x.id===selId
 
 // ════════════ SELECT / DELETE ════════════
 function selObj(id){
-  selId=id;const o=objs.find(x=>x.id===id);
+  selId=id;selIds=id!=null?[id]:[];const o=objs.find(x=>x.id===id);
   const tn={stroke:'획',shape:'도형',text:'텍스트',image:'이미지'};
   document.getElementById('statusObj').textContent=o?`선택: ${tn[o.type]} #${id}`:'';
   if(o){
@@ -2741,9 +2844,16 @@ function setStrokeUI(w){
   ['customStroke','customStroke2'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=w;});
 }
 function deleteSelected(){
+  if(selIds.length>1){
+    objs=objs.filter(o=>!selIds.includes(o.id));
+    marqueIds=marqueIds.filter(id=>!selIds.includes(id));
+    selIds=[];selId=null;
+    saveH();clearSel();drawMarque();refreshList();
+    return;
+  }
   if(!selId)return;
   const i=objs.findIndex(x=>x.id===selId);
-  if(i>-1){objs.splice(i,1);marqueIds=marqueIds.filter(x=>x!==selId);selId=null;saveH();clearSel();drawMarque();refreshList();}
+  if(i>-1){objs.splice(i,1);marqueIds=marqueIds.filter(x=>x!==selId);selId=null;selIds=[];saveH();clearSel();drawMarque();refreshList();}
 }
 function deleteObj(id,e){
   e&&e.stopPropagation();
@@ -2757,7 +2867,7 @@ function refreshList(){
   const icons={stroke:'✏️',shape:'⬡',text:'T',image:'🖼️'},names={stroke:'획',shape:'도형',text:'텍스트',image:'이미지'};
   [...objs].reverse().forEach(o=>{
     const div=document.createElement('div');
-    div.className='obj-item'+(o.id===selId?' sel':'');
+    div.className='obj-item'+((selIds.length>1?selIds.includes(o.id):o.id===selId)?' sel':'');
     let lbl='';
     if(o.type==='text')lbl=`"${(o.text||'').replace(/\n/g,' ').slice(0,10)}"`;
     else if(o.type==='shape')lbl=o.shape;
@@ -2928,6 +3038,22 @@ function onDown(e){
   if(tool==='select2'){
     const hit=hitTest(xi,yi);
     if(hit){
+      if(e.shiftKey){
+        // Shift+클릭: 다중 선택에 추가/제거 토글
+        if(selIds.includes(hit.id)){
+          selIds=selIds.filter(id=>id!==hit.id);
+        } else {
+          selIds=[...selIds, hit.id];
+        }
+        selId=selIds.length?selIds[selIds.length-1]:null;
+        drawSel();refreshList();
+        return; // Shift+클릭은 드래그로 이어지지 않음(오선택 방지)
+      }
+      // 이미 다중 선택된 객체 중 하나를 클릭하면 선택을 유지한 채 그룹 이동
+      if(selIds.length>1 && selIds.includes(hit.id)){
+        dragging=true;dragLX=x;dragLY=y;HC.style.cursor='move';
+        return;
+      }
       selObj(hit.id);
       if(e.ctrlKey||e.metaKey){
         // Ctrl/Cmd+드래그: 원본은 그대로 두고 복제본을 드래그
@@ -2937,7 +3063,13 @@ function onDown(e){
       dragging=true;dragLX=x;dragLY=y;
       if(!(e.ctrlKey||e.metaKey)) HC.style.cursor='move';
     }
-    else{selId=null;clearSel();document.getElementById('statusObj').textContent='';refreshList();}
+    else{
+      // 빈 공간 드래그 시작: 영역선택(마퀴)으로 다중 선택 준비
+      if(!e.shiftKey){ selId=null; selIds=[]; }
+      clearSel();document.getElementById('statusObj').textContent='';refreshList();
+      selMarqueeActive=true;selMarqueeSX=xi;selMarqueeSY=yi;
+      selMarqueeRect={x:xi,y:yi,w:0,h:0};
+    }
     return;
   }
   if(tool==='fill'){floodFill(xi,yi,fgH,fgA);return;}
@@ -2959,6 +3091,13 @@ function onMove(e){
   const{x,y}=getPos(e);const xi=Math.round(x),yi=Math.round(y);
   document.getElementById('statusPos').textContent=`${xi}, ${yi} px`;
   if(svgR){doSvgResize(x,y);return;}
+
+  // ── select2: 빈 공간 드래그로 다중 선택 영역 그리기
+  if(selMarqueeActive){
+    selMarqueeRect={x:selMarqueeSX,y:selMarqueeSY,w:xi-selMarqueeSX,h:yi-selMarqueeSY};
+    drawSelMarquee();
+    return;
+  }
 
   // ── marque: 영역 그리기
   if(marqueDrawing){
@@ -3003,7 +3142,21 @@ function onMove(e){
   }
 
   if(tool==='select2'&&!dragging)HC.style.cursor=hitTest(xi,yi)?'move':'default';
-  if(dragging&&selId){const o=objs.find(x=>x.id===selId);if(o){const dx=x-dragLX,dy=y-dragLY;dragLX=x;dragLY=y;moveO(o,dx,dy);renderAll();}return;}
+  if(dragging&&selId){
+    const dx=x-dragLX,dy=y-dragLY;dragLX=x;dragLY=y;
+    if(selIds.length>1){
+      // 다중 선택: 선택된 모든 객체를 함께 이동
+      selIds.forEach(id=>{
+        const o=objs.find(x=>x.id===id);
+        if(o) moveO(o,dx,dy);
+      });
+    } else {
+      const o=objs.find(x=>x.id===selId);
+      if(o) moveO(o,dx,dy);
+    }
+    renderAll();
+    return;
+  }
   if(!drawing)return;
   if(actStroke){actStroke.points.push({x:xi,y:yi});renderAll();}
   if(actShape){
@@ -3070,6 +3223,7 @@ document.addEventListener('mousemove',e=>{
 });
 document.addEventListener('mouseup',()=>{
   if(svgR){ svgR=false; saveH(); return; }
+  if(selMarqueeActive){ finishSelMarquee(); return; }
   if(dragging){ dragging=false; HC.style.cursor='default'; saveH(); return; }
   if(marqueDragging){
     marqueDragging=false; HC.style.cursor='crosshair';
