@@ -165,6 +165,11 @@ select.sel:focus{border-color:var(--accent)}
 .main-area{display:flex;flex:1;overflow:hidden}
 .canvas-area{flex:1;background:var(--cbg);overflow:auto;overflow-anchor:none;padding:20px;position:relative}
 .canvas-wrapper{position:relative;display:inline-block}
+/* 선택 핸들: 평소 반투명해서 뒤의 그림이 비쳐 보이고, 마우스를 올리면 또렷해짐 */
+.selh-v{opacity:.75;transition:opacity .12s ease, fill .12s ease}
+.selh:hover .selh-v{opacity:1;fill:#e8f2fc}
+[data-theme="dark"] .selh-v{fill:#e6e6e6}
+[data-theme="dark"] .selh:hover .selh-v{fill:#fff}
 
 /* ═══ 모바일 전용 UI ═══ */
 .mobile-obj-toggle{display:none;}
@@ -669,7 +674,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.10 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.13 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -702,9 +707,10 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
         <table style="width:100%;border-collapse:collapse;font-size:11px">
           <tr><td style="padding:3px 8px;color:var(--muted);width:140px">새 파일</td><td>빈 캔버스 시작 (미저장 시 저장 확인)</td><td style="color:var(--muted);text-align:right">Ctrl+N</td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">열기</td><td>이미지 또는 EPP 프로젝트 열기</td><td style="color:var(--muted);text-align:right">Ctrl+O</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">저장</td><td>PNG로 저장</td><td style="color:var(--muted);text-align:right">Ctrl+S</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">저장</td><td>EPP 프로젝트로 저장(기본)</td><td style="color:var(--muted);text-align:right">Ctrl+S</td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">다른이름저장</td><td>형식 선택 후 저장</td><td style="color:var(--muted);text-align:right">Ctrl+Shift+S</td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">EPP 저장</td><td>객체 편집 정보 유지 프로젝트 저장</td><td style="color:var(--muted);text-align:right">Ctrl+E</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">PNG 저장</td><td>그림을 PNG 이미지로 내보내기</td><td style="color:var(--muted);text-align:right">툴바</td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">인쇄</td><td>브라우저 인쇄 대화상자</td><td style="color:var(--muted);text-align:right">Ctrl+P</td></tr>
         </table>
 
@@ -810,8 +816,8 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
     <button class="ib" data-tip="새 파일" data-key="Ctrl+N" onclick="newFile()"><svg width="22" height="22" viewBox="0 0 22 22"><rect x="3" y="1" width="12" height="17" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><polyline points="11,1 11,7 17,7" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>새 파일</button>
     <button class="ib" data-tip="최근 작업 파일" onclick="openRecentFiles()"><svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><polyline points="11,6 11,11 15,13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>최근 파일</button>
     <button class="ib" data-tip="열기 (이미지/EPP)" data-key="Ctrl+O" onclick="document.getElementById('openInput').click()"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M2 6a1 1 0 011-1h5l2 2h8a1 1 0 011 1v9a1 1 0 01-1 1H3a1 1 0 01-1-1V6z" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>열기</button>
-    <button class="ib" data-tip="EPP 프로젝트 저장" data-key="Ctrl+E" onclick="saveEPPWithPicker()"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M4 3h11l4 4v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1z" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="7" y="3" width="8" height="5" rx=".5" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="5" y="12" width="12" height="6" rx=".5" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="11" y="16.5" text-anchor="middle" font-size="5" fill="currentColor" font-weight="bold">EPP</text></svg>EPP저장</button>
-    <button class="ib" data-tip="저장 (PNG)" data-key="Ctrl+S" onclick="saveFile()"><svg width="22" height="22" viewBox="0 0 22 22"><rect x="3" y="2" width="16" height="18" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="6" y="2" width="9" height="6" rx=".5" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="5" y="12" width="12" height="5" rx=".5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>저장</button>
+    <button class="ib" data-tip="EPP 프로젝트 저장" data-key="Ctrl+S" onclick="saveEPPWithPicker()"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M4 3h11l4 4v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1z" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="7" y="3" width="8" height="5" rx=".5" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="5" y="12" width="12" height="6" rx=".5" fill="none" stroke="currentColor" stroke-width="1.4"/><text x="11" y="16.5" text-anchor="middle" font-size="5" fill="currentColor" font-weight="bold">EPP</text></svg>EPP저장</button>
+    <button class="ib" data-tip="PNG 이미지로 저장" onclick="saveFile()"><svg width="22" height="22" viewBox="0 0 22 22"><rect x="3" y="2" width="16" height="18" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="6" y="2" width="9" height="6" rx=".5" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="5" y="12" width="12" height="5" rx=".5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>PNG저장</button>
     <button class="ib" data-tip="다른이름으로 저장" data-key="Ctrl+Shift+S" onclick="openSaveAs()"><svg width="22" height="22" viewBox="0 0 22 22"><rect x="3" y="2" width="16" height="18" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="6" y="2" width="9" height="6" rx=".5" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="5" y="12" width="12" height="5" rx=".5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="17" cy="6" r="4.5" fill="var(--accent)"/><text x="17" y="9" text-anchor="middle" font-size="6" fill="#fff" font-weight="bold">A</text></svg>다른이름</button>
     <button class="ib" data-tip="인쇄" data-key="Ctrl+P" onclick="printCanvas()"><svg width="22" height="22" viewBox="0 0 22 22"><rect x="4" y="7" width="14" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6 7V3h10v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><rect x="6" y="12" width="10" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="16" cy="10" r="1" fill="currentColor"/></svg>인쇄</button>
     <button class="ib" data-tip="PDF로 저장 (A4)" onclick="savePDF()"><svg width="22" height="22" viewBox="0 0 22 22"><rect x="3" y="2" width="16" height="18" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 7h8M7 10h8M7 13h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><text x="15" y="17" text-anchor="middle" font-size="5.5" fill="currentColor" font-weight="bold">PDF</text></svg>PDF저장</button>
@@ -1303,11 +1309,28 @@ function dShape(c,o,hit){
     if(!hit)c.stroke();
   }
   else if(o.shape==='arrow'){
-    const ang=Math.atan2(y2-y1,x2-x1), len=14+o.strokeWidth*2;
-    c.beginPath();c.moveTo(x1+off,y1+off);c.lineTo(x2+off,y2+off);c.stroke();
-    c.beginPath();c.moveTo(x2+off,y2+off);
-    c.lineTo(x2+off-len*Math.cos(ang-Math.PI/6), y2+off-len*Math.sin(ang-Math.PI/6));
-    c.lineTo(x2+off-len*Math.cos(ang+Math.PI/6), y2+off-len*Math.sin(ang+Math.PI/6));
+    const ax1=x1+off, ay1=y1+off, ax2=x2+off, ay2=y2+off;
+    const ang=Math.atan2(ay2-ay1,ax2-ax1), len=14+o.strokeWidth*2;
+    const dist=Math.hypot(ax2-ax1, ay2-ay1);
+    // 화살촉 밑변이 놓이는 위치(끝점에서 축 방향으로 len*cos(30°)만큼 뒤)
+    const baseD=len*Math.cos(Math.PI/6);
+    // 기둥선을 끝점까지 그리면 안 된다:
+    //  ① 화살촉 안쪽까지 선이 들어가고, ② lineCap='round'라 둥근 마감이 끝점 바깥으로
+    //  strokeWidth/2만큼 더 튀어나와 화살표 뾰족한 끝을 뚫고 나온다.
+    // → 화살촉 밑변까지만 그리고, 마감을 butt로 바꿔 끝을 평평하게 자른다.
+    const shaftD=Math.max(0, dist-baseD+1); // +1: 화살촉과의 이음매에 틈이 생기지 않도록 살짝 겹침
+    if(shaftD>0){
+      c.save();
+      c.lineCap='butt';
+      c.beginPath();
+      c.moveTo(ax1,ay1);
+      c.lineTo(ax1+Math.cos(ang)*shaftD, ay1+Math.sin(ang)*shaftD);
+      c.stroke();
+      c.restore();
+    }
+    c.beginPath();c.moveTo(ax2,ay2);
+    c.lineTo(ax2-len*Math.cos(ang-Math.PI/6), ay2-len*Math.sin(ang-Math.PI/6));
+    c.lineTo(ax2-len*Math.cos(ang+Math.PI/6), ay2-len*Math.sin(ang+Math.PI/6));
     c.closePath();c.fillStyle=hit?id2c(o.id):o.strokeColor;c.fill();
   }
   else if(o.shape==='staff'){
@@ -1480,6 +1503,9 @@ function getHitBounds(o){
 function drawSel(){
   SV.innerHTML='';
   const ns='http://www.w3.org/2000/svg';
+  // SVG 오버레이는 canvasWrapper와 함께 scale(zoom) 되므로, 화면상 크기를 일정하게 유지하려면
+  // 모든 치수를 zoom으로 나눠야 한다(안 그러면 400% 줌에서 핸들이 4배로 커져 그림을 가림)
+  const z=zoom||1, px=v=>v/z;
 
   // 다중 선택: 각 객체에 얇은 점선 박스 + 전체를 감싸는 바운딩 박스(핸들 없음, 이동만 가능)
   if(selIds.length>1){
@@ -1487,11 +1513,12 @@ function drawSel(){
     selIds.forEach(id=>{
       const o=objs.find(x=>x.id===id);if(!o)return;
       const b=getBounds(o);if(!b)return;
+      const p=px(3);
       const r=document.createElementNS(ns,'rect');
-      r.setAttribute('x',b.x-3);r.setAttribute('y',b.y-3);
-      r.setAttribute('width',b.w+6);r.setAttribute('height',b.h+6);
+      r.setAttribute('x',b.x-p);r.setAttribute('y',b.y-p);
+      r.setAttribute('width',b.w+p*2);r.setAttribute('height',b.h+p*2);
       r.setAttribute('fill','none');r.setAttribute('stroke','#0078d4');
-      r.setAttribute('stroke-width','1');r.setAttribute('stroke-dasharray','3,2');
+      r.setAttribute('stroke-width',px(1));r.setAttribute('stroke-dasharray',`${px(3)},${px(2)}`);
       r.setAttribute('opacity','0.6');
       r.style.pointerEvents='none';
       SV.appendChild(r);
@@ -1499,36 +1526,61 @@ function drawSel(){
       maxX=Math.max(maxX,b.x+b.w);maxY=Math.max(maxY,b.y+b.h);
     });
     if(minX<Infinity){
-      const pd=8;
+      const pd=px(8);
       const br=document.createElementNS(ns,'rect');
       br.setAttribute('x',minX-pd);br.setAttribute('y',minY-pd);
       br.setAttribute('width',maxX-minX+pd*2);br.setAttribute('height',maxY-minY+pd*2);
       br.setAttribute('fill','none');br.setAttribute('stroke','#0078d4');
-      br.setAttribute('stroke-width','2');br.setAttribute('stroke-dasharray','7,4');
+      br.setAttribute('stroke-width',px(2));br.setAttribute('stroke-dasharray',`${px(7)},${px(4)}`);
       br.style.pointerEvents='none';
       SV.appendChild(br);
     }
     return;
   }
 
-  // 단일 선택: 기존과 동일하게 리사이즈 핸들 포함 표시
+  // 단일 선택: 리사이즈 핸들 포함 표시
   if(!selId)return;
   const o=objs.find(x=>x.id===selId);if(!o)return;
-  const b=getBounds(o),pd=6,x=b.x-pd,y=b.y-pd,w=b.w+pd*2,h=b.h+pd*2;
+  const pd=px(6);
+  const b=getBounds(o),x=b.x-pd,y=b.y-pd,w=b.w+pd*2,h=b.h+pd*2;
   // dashed border — pointer-events:none so it doesn't block HC
   const r=document.createElementNS(ns,'rect');
   r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',w);r.setAttribute('height',h);
   r.setAttribute('fill','none');r.setAttribute('stroke','#0078d4');
-  r.setAttribute('stroke-width','1.5');r.setAttribute('stroke-dasharray','5,3');
+  r.setAttribute('stroke-width',px(1.5));r.setAttribute('stroke-dasharray',`${px(5)},${px(3)}`);
   r.style.pointerEvents='none';
   SV.appendChild(r);
-  // resize handles — pointer-events:all
+
+  // 리사이즈 핸들
+  // - 보이는 사각형은 작게(9px) + 흰 채움 + 파란 테두리 → 뒤의 그림을 최대한 덜 가림
+  // - 실제 클릭/터치 판정 영역은 투명한 큰 사각형(터치 28px / 마우스 20px)으로 따로 둬서 조작은 쉽게
+  // - 평소 반투명, 마우스를 올리면 또렷해짐(CSS .selh:hover)
+  const isTouch = window.matchMedia('(pointer: coarse)').matches;
+  const vs=px(9), hs=px(isTouch?28:20); // 보이는 크기 / 잡는 영역 크기
+  const cursors=['nw-resize','n-resize','ne-resize','w-resize','e-resize','sw-resize','s-resize','se-resize'];
   [[x,y],[x+w/2,y],[x+w,y],[x,y+h/2],[x+w,y+h/2],[x,y+h],[x+w/2,y+h],[x+w,y+h]].forEach(([hx2,hy],i)=>{
-    const hr=document.createElementNS(ns,'rect');
-    hr.setAttribute('x',hx2-6);hr.setAttribute('y',hy-6);hr.setAttribute('width',12);hr.setAttribute('height',12);
-    hr.setAttribute('fill','#0078d4');hr.setAttribute('stroke','#fff');hr.setAttribute('stroke-width','1.5');hr.setAttribute('rx','2');
-    hr.style.pointerEvents='all';hr.style.cursor=(['nw-resize','n-resize','ne-resize','w-resize','e-resize','sw-resize','s-resize','se-resize'])[i]||'se-resize';
-    hr.dataset.hi=i;SV.appendChild(hr);
+    const g=document.createElementNS(ns,'g');
+    g.setAttribute('class','selh');
+
+    const vis=document.createElementNS(ns,'rect');
+    vis.setAttribute('class','selh-v');
+    vis.setAttribute('x',hx2-vs/2);vis.setAttribute('y',hy-vs/2);
+    vis.setAttribute('width',vs);vis.setAttribute('height',vs);
+    vis.setAttribute('fill','#fff');vis.setAttribute('stroke','#0078d4');
+    vis.setAttribute('stroke-width',px(1.5));vis.setAttribute('rx',px(2));
+    vis.style.pointerEvents='none';
+    g.appendChild(vis);
+
+    const hit=document.createElementNS(ns,'rect');
+    hit.setAttribute('x',hx2-hs/2);hit.setAttribute('y',hy-hs/2);
+    hit.setAttribute('width',hs);hit.setAttribute('height',hs);
+    hit.setAttribute('fill','transparent');
+    hit.style.pointerEvents='all';
+    hit.style.cursor=cursors[i]||'se-resize';
+    hit.dataset.hi=i;
+    g.appendChild(hit);
+
+    SV.appendChild(g);
   });
 }
 function clearSel(){SV.innerHTML='';selIds=[];}
@@ -3704,7 +3756,7 @@ document.addEventListener('keydown',e=>{
     if(key==='z'){e.preventDefault();e.shiftKey?redo():undo();}
     if(key==='y'){e.preventDefault();redo();}
     if(key==='e'){e.preventDefault();saveEPPWithPicker();}
-    if(key==='s'){e.preventDefault();e.shiftKey?openSaveAs():saveFile();}
+    if(key==='s'){e.preventDefault();e.shiftKey?openSaveAs():saveEPPWithPicker();}
     if(key==='n'){e.preventDefault();newFile();}
     if(key==='p'){e.preventDefault();printCanvas();}
     if(key==='o'){e.preventDefault();document.getElementById('openInput').click();}
