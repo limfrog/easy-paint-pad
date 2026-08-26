@@ -669,7 +669,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.9 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.10 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -3430,8 +3430,11 @@ document.getElementById('canvasArea').addEventListener('wheel',e=>{if(e.metaKey|
 // (스크롤 기반으로 시도했으나, 캔버스가 작업영역보다 작아 스크롤할 내용이 없는 축에서는
 //  전혀 이동이 안 되는 문제가 있어 되돌림 — 이 기능은 "화면에 보이는 부분을 스크롤"이 아니라
 //  "작업영역 안에서 캔버스를 자유롭게 배치"하는 기능이므로 transform 방식이 맞음.
-//  기존에 있던 방향 반전 문제는 overflow-anchor:none으로 해결 — 브라우저의 스크롤 앵커링이
-//  transform 변화를 감지해 스크롤 위치를 제멋대로 보정하면서 방향이 꼬였던 것)
+//  진짜 원인: canvas-area는 overflow:auto라서 모바일 핀치줌 기능이 scrollLeft/scrollTop을
+//  실제로 사용한다. 그런데 우리 쪽 transform이 wrapper의 시각적 범위를 바꾸면 브라우저가
+//  이 컨테이너의 스크롤 가능 영역을 다시 계산하면서 scrollTop/Left를 제멋대로 보정("스프링백")
+//  해버려 transform과 서로 충돌한다. 그래서 Space+드래그 중에는 scrollLeft/Top을 항상 0으로
+//  고정해 위치 제어를 transform 하나로만 단일화한다)
 let spacePanActive=false, spacePanSX=0, spacePanSY=0, spacePanOX=0, spacePanOY=0;
 let spaceKeyDown=false;
 document.addEventListener('keydown', e=>{
@@ -3457,6 +3460,8 @@ HC.addEventListener('mousedown', e=>{
     spacePanSX=e.clientX; spacePanSY=e.clientY;
     spacePanOX=canvasOffsetX; spacePanOY=canvasOffsetY;
     HC.style.cursor='grabbing';
+    const area=document.getElementById('canvasArea');
+    area.scrollLeft=0; area.scrollTop=0;
   }
 }, true); // capture 단계에서 먼저 가로채 다른 도구 동작(그리기 등)을 막음
 document.addEventListener('mousemove', e=>{
@@ -3464,6 +3469,9 @@ document.addEventListener('mousemove', e=>{
   canvasOffsetX = spacePanOX + (e.clientX - spacePanSX);
   canvasOffsetY = spacePanOY + (e.clientY - spacePanSY);
   applyCanvasTransform();
+  // 브라우저가 스크롤 위치를 자체적으로 보정하지 못하도록 매 프레임 0으로 재고정
+  const area=document.getElementById('canvasArea');
+  if(area.scrollLeft!==0||area.scrollTop!==0){ area.scrollLeft=0; area.scrollTop=0; }
 });
 document.addEventListener('mouseup', ()=>{
   if(spacePanActive){
