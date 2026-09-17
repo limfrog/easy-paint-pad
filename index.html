@@ -291,6 +291,11 @@ select.sel:focus{border-color:var(--accent)}
 .layer-btn{width:22px;height:22px;border:1px solid var(--borderl);border-radius:4px;background:transparent;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;padding:0}
 .layer-btn:hover{background:var(--hover)}
 .layer-list{max-height:44%;min-height:92px;overflow-y:auto;touch-action:pan-y;border-bottom:1px solid var(--border);background:var(--bar)}
+.obj-layer-move{display:flex;gap:5px;padding:6px;border-bottom:1px solid var(--border);background:var(--ribbon);align-items:center}
+.obj-layer-target{min-width:0;flex:1;height:30px;border:1px solid var(--border);border-radius:6px;background:var(--bar);color:var(--text);font:inherit;font-size:11px;padding:0 6px}
+.obj-layer-move-btn{height:30px;padding:0 10px;border:1px solid var(--border);border-radius:6px;background:var(--bar);color:var(--text);font:inherit;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0}
+.obj-layer-move-btn:hover{background:var(--hover)}
+.obj-layer-move-btn:disabled,.obj-layer-target:disabled{opacity:.5;cursor:not-allowed}
 .layer-item{min-height:34px;padding:4px 5px;display:flex;align-items:center;gap:4px;border-bottom:1px solid var(--borderl);cursor:pointer;font-size:10px}
 .layer-item:hover{background:var(--hover)}
 .layer-item.active{background:var(--active);color:var(--accent);font-weight:600}
@@ -716,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.27 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.29 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -1204,10 +1209,13 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
     <div class="obj-subhead">
       <span id="activeLayerLabel">현재 레이어 객체</span>
       <div class="layer-btns">
-        <button class="layer-btn" data-tip="선택 객체를 현재 레이어로 이동" onclick="moveSelectionToActiveLayer()">⇥</button>
         <button class="layer-btn" data-tip="객체 위로" data-key="Ctrl+]" onclick="moveLayerUp()">↑</button>
         <button class="layer-btn" data-tip="객체 아래로" data-key="Ctrl+[" onclick="moveLayerDown()">↓</button>
       </div>
+    </div>
+    <div class="obj-layer-move">
+      <select id="objectLayerTarget" class="obj-layer-target" aria-label="이동할 레이어"></select>
+      <button class="obj-layer-move-btn" onclick="moveSelectionToLayer()">이동</button>
     </div>
     <div class="obj-list" id="objList"></div>
   </div>
@@ -1662,8 +1670,9 @@ function hitTest(x,y){
   const oc=hitTest._oc, ox=hitTest._ox;
   if(oc.width!==CW||oc.height!==CH){oc.width=CW;oc.height=CH;}
   ox.clearRect(0,0,CW,CH);
-  // 실제 레이어 순서(아래→위) 그대로 히트맵을 그린다.
-  getRenderObjects().forEach(o=>drawO(ox,o,true));
+  // 실제 레이어 순서(아래→위) 그대로 히트맵을 그리되,
+  // 잠긴 레이어의 객체는 선택 대상 자체에서 제외한다.
+  getRenderObjects().filter(o=>!isLayerLocked(ensureObjLayer(o).layerId)).forEach(o=>drawO(ox,o,true));
   const d=ox.getImageData(px,py,1,1).data;
   if(d[3]<10)return null;
   const id=c2id(d[0],d[1],d[2]);
@@ -1827,6 +1836,7 @@ function finishSelMarquee(){
   const hitIds=[];
   objs.forEach(o=>{
     if(!isObjVisible(o)) return;
+    if(isLayerLocked(ensureObjLayer(o).layerId)) return; // 잠긴 레이어는 다중 선택 대상에서 제외
     if(o.isBackground) return; // 바탕 이미지는 항상 캔버스 전체를 덮으므로 마퀴 선택에서 제외
     const b=getBounds(o);
     if(!b) return;
@@ -3141,10 +3151,11 @@ function _doPixelPaste(clip){
 }
 
 function selectAll(){
-  if(!getRenderObjects().length) return;
-  // marque 모드: 전체 캔버스 영역 선택
+  const selectable=getRenderObjects().filter(o=>!isLayerLocked(ensureObjLayer(o).layerId));
+  if(!selectable.length) return;
+  // marque 모드: 전체 캔버스 영역 선택 (잠긴 레이어 제외)
   marqueRect={x:0,y:0,w:CW,h:CH};
-  marqueIds=getRenderObjects().map(o=>o.id);
+  marqueIds=selectable.map(o=>o.id);
   setTool('marque');
   drawMarque();
   document.getElementById('statusObj').textContent=`영역 선택: ${marqueIds.length}개 객체`;
@@ -3162,7 +3173,10 @@ function moveLayerDown(){
 
 // ════════════ SELECT / DELETE ════════════
 function selObj(id){
-  selId=id;selIds=id!=null?[id]:[];const o=objs.find(x=>x.id===id);
+  const o=objs.find(x=>x.id===id);
+  // 잠긴 레이어의 객체는 목록/캔버스 어디에서도 선택되지 않는다.
+  if(o&&isLayerLocked(ensureObjLayer(o).layerId)) return;
+  selId=id;selIds=id!=null?[id]:[];
   if(o){ensureObjLayer(o);activeLayerId=o.layerId;}
   document.getElementById('statusObj').textContent=o?`선택: ${getObjTypeLabel(o)} #${id}${(o.locked||isLayerLocked(o.layerId))?' · 🔒 잠금':''}`:'';
   if(o){
@@ -3244,10 +3258,48 @@ function addLayer(){
 function selectLayer(id){if(!getLayer(id))return;activeLayerId=id;refreshList();}
 function renameLayer(id){const l=getLayer(id);if(!l)return;const v=prompt('레이어 이름',l.name);if(v&&v.trim()){l.name=v.trim();saveH();}}
 function toggleLayerVisible(id,e){e&&e.stopPropagation();const l=getLayer(id);if(!l)return;l.visible=l.visible===false?true:false;if(!l.visible){const hiddenIds=objs.filter(o=>ensureObjLayer(o).layerId===id).map(o=>o.id);if(selId&&hiddenIds.includes(selId)){selId=null;selIds=[];clearSel();}}saveH();}
-function toggleLayerLock(id,e){e&&e.stopPropagation();const l=getLayer(id);if(!l)return;l.locked=!l.locked;if(l.locked){dragging=false;svgR=false;if(actTed&&((actTed._savedObj&&actTed._savedObj.layerId===id)||(!actTed._savedObj&&activeLayerId===id)))commitT();}saveH();}
+function toggleLayerLock(id,e){
+  e&&e.stopPropagation();const l=getLayer(id);if(!l)return;l.locked=!l.locked;
+  if(l.locked){
+    dragging=false;svgR=false;
+    if(actTed&&((actTed._savedObj&&actTed._savedObj.layerId===id)||(!actTed._savedObj&&activeLayerId===id)))commitT();
+    // 잠그는 순간 해당 레이어 객체의 기존 선택 상태도 제거한다.
+    selIds=selIds.filter(oid=>{const o=objs.find(x=>x.id===oid);return o&&ensureObjLayer(o).layerId!==id;});
+    if(selId){const so=objs.find(x=>x.id===selId);if(so&&ensureObjLayer(so).layerId===id)selId=selIds.length?selIds[selIds.length-1]:null;}
+    if(selId) drawSel(); else clearSel();
+  }
+  saveH();
+}
 function moveActiveLayer(dir){ensureLayerState();const i=layers.findIndex(l=>l.id===activeLayerId);const j=i+dir;if(i<0||j<0||j>=layers.length)return;[layers[i],layers[j]]=[layers[j],layers[i]];saveH();}
 function deleteActiveLayer(){ensureLayerState();if(layers.length<=1){alert('레이어는 최소 1개가 필요합니다.');return;}const l=getLayer(activeLayerId);if(!l)return;const cnt=objs.filter(o=>ensureObjLayer(o).layerId===l.id).length;if(cnt&&!confirm(`“${l.name}” 레이어와 포함된 객체 ${cnt}개를 삭제할까요?`))return;objs=objs.filter(o=>ensureObjLayer(o).layerId!==l.id);const i=layers.findIndex(x=>x.id===l.id);layers.splice(i,1);activeLayerId=layers[Math.max(0,i-1)].id;selId=null;selIds=[];clearSel();saveH();}
-function moveSelectionToActiveLayer(){ensureLayerState();const ids=selIds.length?selIds:(selId?[selId]:[]);if(!ids.length)return;const dst=getLayer(activeLayerId);if(!dst||dst.locked)return;let changed=false;for(const id of ids){const o=objs.find(x=>x.id===id);if(!o||!isObjEditable(o))continue;o.layerId=activeLayerId;changed=true;}if(changed)saveH();}
+function moveSelectionToLayer(targetLayerId){
+  ensureLayerState();
+  const ids=selIds.length?selIds:(selId?[selId]:[]);
+  if(!ids.length)return;
+  const select=document.getElementById('objectLayerTarget');
+  const dstId=targetLayerId||(select&&select.value);
+  const dst=getLayer(dstId);
+  if(!dst)return;
+  if(dst.locked){document.getElementById('statusObj').textContent='대상 레이어가 잠겨 있어 이동할 수 없습니다.';return;}
+  let changed=false,blocked=0;
+  for(const id of ids){
+    const o=objs.find(x=>x.id===id);
+    if(!o)continue;
+    ensureObjLayer(o);
+    if(o.layerId===dst.id)continue;
+    if(!isObjEditable(o)){blocked++;continue;}
+    o.layerId=dst.id;changed=true;
+  }
+  if(changed){
+    activeLayerId=dst.id;
+    saveH();
+    if(blocked) document.getElementById('statusObj').textContent=`일부 객체는 잠겨 있어 제외되었습니다. · ${dst.name}으로 이동`;
+    else document.getElementById('statusObj').textContent=`선택 객체를 ${dst.name}으로 이동`;
+  }else if(blocked){
+    document.getElementById('statusObj').textContent='선택 객체가 잠겨 있어 이동할 수 없습니다.';
+  }
+}
+function moveSelectionToActiveLayer(){moveSelectionToLayer(activeLayerId);}
 function refreshLayerList(){
   ensureLayerState();const list=document.getElementById('layerList');if(!list)return;list.innerHTML='';
   [...layers].reverse().forEach(l=>{const row=document.createElement('div');row.className='layer-item'+(l.id===activeLayerId?' active':'')+(l.visible===false?' hidden-layer':'')+(l.locked?' locked-layer':'');row.title='더블클릭: 레이어 이름 변경';
@@ -3258,6 +3310,24 @@ function refreshLayerList(){
     row.append(vis,lock,nm,ct);row.onclick=()=>selectLayer(l.id);row.ondblclick=e=>{e.stopPropagation();renameLayer(l.id)};list.appendChild(row);
   });
   const lbl=document.getElementById('activeLayerLabel');const al=getLayer(activeLayerId);if(lbl)lbl.textContent=al?`${al.name} 객체`:'현재 레이어 객체';
+  const target=document.getElementById('objectLayerTarget');
+  if(target){
+    const prev=target.value;target.innerHTML='';
+    const ids=selIds.length?selIds:(selId?[selId]:[]);
+    const selectedObjs=ids.map(id=>objs.find(o=>o.id===id)).filter(Boolean);
+    const srcIds=new Set(selectedObjs.map(o=>ensureObjLayer(o).layerId));
+    layers.forEach(l=>{
+      const opt=document.createElement('option');opt.value=l.id;
+      opt.textContent=l.name+(l.locked?' 🔒':'')+(l.visible===false?' (숨김)':'');
+      opt.disabled=!!l.locked || (srcIds.size===1&&srcIds.has(l.id));
+      target.appendChild(opt);
+    });
+    const validPrev=[...target.options].some(o=>o.value===prev&&!o.disabled);
+    if(validPrev) target.value=prev;
+    else { const first=[...target.options].find(o=>!o.disabled); if(first) target.value=first.value; }
+    target.disabled=!selectedObjs.length || ![...target.options].some(o=>!o.disabled);
+    const btn=document.querySelector('.obj-layer-move-btn');if(btn)btn.disabled=target.disabled;
+  }
 }
 function refreshList(){
   refreshLayerList();const list=document.getElementById('objList');if(!list)return;list.innerHTML='';const al=getLayer(activeLayerId);const layerLocked=!!al?.locked;
@@ -3267,7 +3337,7 @@ function refreshList(){
     const nameSpan=document.createElement('span');nameSpan.className='obj-name';if(o.type==='text')nameSpan.title='더블클릭으로 편집';nameSpan.textContent=`${getObjTypeLabel(o)} ${getObjLabel(o)}`;
     const lockBtn=document.createElement('button');lockBtn.type='button';lockBtn.className='obj-lock'+(o.locked?' locked':'');lockBtn.textContent=layerLocked?'🔒':(o.locked?'🔒':'🔓');lockBtn.disabled=layerLocked;lockBtn.title=layerLocked?'레이어가 잠겨 있습니다':(o.locked?'객체 잠금 해제':'객체 잠금');
     const delSpan=document.createElement('span');delSpan.className='obj-del';delSpan.textContent='✕';delSpan.title=layerLocked?'레이어가 잠겨 있습니다':'객체 삭제';
-    div.append(iconSpan,nameSpan,lockBtn,delSpan);div.addEventListener('click',()=>selObj(o.id));
+    div.append(iconSpan,nameSpan,lockBtn,delSpan);div.addEventListener('click',()=>{if(layerLocked)return;selObj(o.id);});
     if(o.type==='text'){div.addEventListener('dblclick',e=>{e.stopPropagation();if(!isObjEditable(o))return;selObj(o.id);setTool('select2');openTed(o.x,o.y,o);});}
     lockBtn.addEventListener('click',e=>toggleObjLock(o.id,e));delSpan.addEventListener('click',e=>deleteObj(o.id,e));list.appendChild(div);
   });
@@ -3450,7 +3520,7 @@ function onDown(e){
         drawSel();refreshList();
         return; // Shift+클릭은 드래그로 이어지지 않음(오선택 방지)
       }
-      // 객체 잠금 또는 레이어 잠금 시 선택만 가능
+      // 개별 객체 잠금은 선택만 허용한다. 레이어 잠금 객체는 hitTest 단계에서 제외된다.
       if(!isObjEditable(hit)){
         selObj(hit.id);
         HC.style.cursor='not-allowed';
