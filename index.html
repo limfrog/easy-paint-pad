@@ -681,7 +681,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.19 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.20 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -1225,7 +1225,7 @@ const MUSIC_SYMBOLS=[
   {key:'sixteenthRest',label:'16분쉼표',text:'𝄿',fontFamily:"'Noto Music',serif",fontSize:60},
   {key:'quarterNote',label:'4분음표',text:'♩',fontFamily:"'Noto Music',serif",fontSize:64},
   {key:'eighthNote',label:'8분음표',text:'♪',fontFamily:"'Noto Music',serif",fontSize:64},
-  {key:'sixteenthNote',label:'16분음표',text:'♬',fontFamily:"'Noto Music',serif",fontSize:64},
+  {key:'sixteenthNote',label:'16분음표',text:'𝅘𝅥𝅯',fontFamily:"'Noto Music',serif",fontSize:64},
   {key:'beginRepeat',label:'도돌이표 시작',text:'𝄆',fontFamily:"'Noto Music',serif",fontSize:72},
   {key:'endRepeat',label:'도돌이표 끝',text:'𝄇',fontFamily:"'Noto Music',serif",fontSize:72},
   {key:'doubleBar',label:'겹세로줄',text:'𝄁',fontFamily:"'Noto Music',serif",fontSize:72},
@@ -1261,11 +1261,26 @@ function initMusicSymbolUI(){
   MUSIC_SYMBOLS.forEach(item=>{
     const opt=document.createElement('option');
     opt.value=item.key;
-    opt.textContent=`${item.label} ${item.text}`;
+    // 모바일의 native <select> 목록은 웹폰트(Noto Music)를 무시할 수 있어
+    // 기호 glyph 대신 이름만 표시하고, 실제 기호는 아래 직접입력 칸에서 보여준다.
+    opt.textContent=item.label;
     sel.appendChild(opt);
   });
   sel.value='trebleClef';
   onMusicSymbolSelectChange();
+}
+function ensureMusicFontReady(){
+  if(!document.fonts) return Promise.resolve();
+  // 모바일에서 Noto Music이 늦게 내려오는 경우 캔버스가 대체문자로 먼저 그려질 수 있음.
+  // 폰트 로드 완료 뒤 도형 UI와 캔버스를 다시 그려 정상 glyph로 교체한다.
+  return Promise.all([
+    document.fonts.load("64px 'Noto Music'"),
+    document.fonts.ready
+  ]).then(()=>{
+    updateMusicSymbolPreview();
+    renderAll();
+    refreshList();
+  }).catch(()=>{});
 }
 function onMusicSymbolSelectChange(){
   const sel=document.getElementById('musicSymbolSelect');
@@ -4946,6 +4961,7 @@ if('visualViewport' in window){
 // ════════════ INIT ════════════
 buildPals();updColorUI();updFontPreview();
 initMusicSymbolUI();
+ensureMusicFontReady();
 // 초기 캔버스 DPR 설정
 setCS(CW,CH);
 setZoom(1);setTool('select2');
