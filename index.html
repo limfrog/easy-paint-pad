@@ -175,6 +175,13 @@ select.sel:focus{border-color:var(--accent)}
 /* ═══ 모바일 전용 UI ═══ */
 .mobile-obj-toggle{display:none;}
 .mobile-panel-overlay{display:none;}
+.mobile-color-targets{display:none;}
+.mobile-color-target-btn{font-family:inherit;color:var(--text);background:var(--bar);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;align-items:center;gap:7px;text-align:left;}
+.mobile-color-target-btn.active{border-color:var(--accent);background:var(--active);box-shadow:0 0 0 1px rgba(0,120,212,.18);}
+.mobile-color-target-btn .mcp-preview{width:28px;height:28px;border-radius:6px;border:1.5px solid #999;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.45);}
+.mobile-color-target-btn .mcp-meta{display:flex;flex-direction:column;line-height:1.15;min-width:0;}
+.mobile-color-target-btn .mcp-label{font-size:11px;font-weight:700;white-space:nowrap;}
+.mobile-color-target-btn .mcp-hex{font-size:8px;color:var(--muted);font-family:monospace;margin-top:2px;white-space:nowrap;}
 
 /* ═══ 반응형: 태블릿/모바일 (900px 이하) ═══ */
 @media (max-width:900px){
@@ -241,11 +248,19 @@ select.sel:focus{border-color:var(--accent)}
   .ib{min-height:44px;}
   .op-btn,.obj-del{padding:6px;}
   .modal-xbtn{padding:8px;}
-  /* 색상 박스 및 팔레트 스와치 터치 타겟 확대 */
-  .cpbox{width:36px!important;height:32px!important;}
-  .color-stack .cpbox{width:34px!important;height:32px!important;}
-  .swatch{width:30px!important;height:30px!important;}
-  .cslot{width:30px!important;height:30px!important;}
+  /* 모바일 색상 UI: 겹친 작은 박스 대신 큰 전경/배경 버튼 */
+  .color-target-cs{min-width:126px;padding:4px 6px 14px!important;}
+  .legacy-color-picker,.legacy-color-labels{display:none!important;}
+  .mobile-color-targets{display:flex;flex-direction:column;gap:5px;width:114px;}
+  .mobile-color-target-btn{display:flex;width:114px;min-height:44px;padding:5px 7px;touch-action:manipulation;}
+  .mobile-color-target-btn:active{transform:scale(.98);}
+  .swatch{width:32px!important;height:32px!important;border-width:2px;}
+  .cslot{width:32px!important;height:32px!important;}
+  #colorPickModal .modal{width:390px!important;max-width:96vw!important;}
+  #colorPickGrid{grid-template-columns:repeat(5,1fr)!important;gap:10px!important;}
+  #colorPickGrid>div{min-height:48px;}
+  #colorPickModal input[type=range]{min-height:30px;}
+  #colorPickModal .modal-foot button{min-height:44px;min-width:88px;}
 }
 
 #bgCanvas{display:block;position:absolute;top:0;left:0;pointer-events:none;z-index:0}
@@ -574,7 +589,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
     </div>
     <div class="modal-foot">
       <button class="btn-cancel" onclick="closeColorPickModal()">취소</button>
-      <button class="btn-ok" onclick="confirmColorPick()">적용</button>
+      <button class="btn-ok" id="colorPickApplyBtn" onclick="confirmColorPick()">적용</button>
     </div>
   </div>
 </div>
@@ -681,7 +696,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.20 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.21 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -1052,13 +1067,23 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
   </div><span class="rs-label">텍스트</span></div>
   <!-- 색상 (단일 세트) -->
   <div class="color-section">
-    <div class="cs">
-      <div class="color-stack">
+    <div class="cs color-target-cs">
+      <div class="color-stack legacy-color-picker">
         <div class="cpbox bg" onclick="chooseColor('bg')"><div class="cpbox-inner" id="bgCI1"></div></div>
         <div class="cpbox fg" onclick="chooseColor('fg')"><div class="cpbox-inner" id="fgCI1"></div></div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:2px;margin-left:4px">
+      <div class="legacy-color-labels" style="display:flex;flex-direction:column;gap:2px;margin-left:4px">
         <span style="font-size:9px;color:var(--muted)">전경</span><span style="font-size:9px;color:var(--muted)">배경</span>
+      </div>
+      <div class="mobile-color-targets" aria-label="전경색 및 배경색 선택">
+        <button type="button" class="mobile-color-target-btn active" id="mobileFgColorBtn" onclick="chooseColor('fg')" aria-label="전경색 변경">
+          <span class="mcp-preview" id="mobileFgPreview"></span>
+          <span class="mcp-meta"><span class="mcp-label">전경색</span><span class="mcp-hex" id="mobileFgHex">#000000</span></span>
+        </button>
+        <button type="button" class="mobile-color-target-btn" id="mobileBgColorBtn" onclick="chooseColor('bg')" aria-label="배경색 변경">
+          <span class="mcp-preview" id="mobileBgPreview"></span>
+          <span class="mcp-meta"><span class="mcp-label">배경색</span><span class="mcp-hex" id="mobileBgHex">#FFFFFF</span></span>
+        </button>
       </div><span class="cs-label">색상</span>
     </div>
     <div class="cs" style="padding-bottom:14px">
@@ -1922,6 +1947,11 @@ function updColorUI(){
   const bg2=`linear-gradient(to right,rgba(${bR},${bG},${bB},0),${bgH})`;
   const fi=document.getElementById('fgCI1');if(fi)fi.style.background=h2r(fgH,fgA);
   const bi=document.getElementById('bgCI1');if(bi)bi.style.background=h2r(bgH,bgA);
+  const mfp=document.getElementById('mobileFgPreview');if(mfp)mfp.style.background=h2r(fgH,fgA);
+  const mbp=document.getElementById('mobileBgPreview');if(mbp)mbp.style.background=h2r(bgH,bgA);
+  const mfh=document.getElementById('mobileFgHex');if(mfh)mfh.textContent=fgH.toUpperCase();
+  const mbh=document.getElementById('mobileBgHex');if(mbh)mbh.textContent=bgH.toUpperCase();
+  updateMobileColorTargetUI();
   const fs=document.getElementById('fgOS1');if(fs)fs.style.background=fg2;
   const bs=document.getElementById('bgOS1');if(bs)bs.style.background=bg2;
 }
@@ -1952,8 +1982,14 @@ function buildPals(){
   p.innerHTML='';
   PAL.forEach(c=>{
     const s=document.createElement('div');s.className='swatch';s.style.background=c;s.title=c;
-    s.addEventListener('click',()=>{fgH=c;updColorUI();applyColorToSel();if(actTed)actTed.style.color=fgH;});
-    s.addEventListener('contextmenu',e=>{e.preventDefault();bgH=c;updColorUI();});
+    s.addEventListener('click',()=>{
+      if(IS_TOUCH_DEVICE&&mobileColorTarget==='bg'){
+        bgH=c;updColorUI();applyBackgroundColorToSel();
+      }else{
+        fgH=c;updColorUI();applyColorToSel();if(actTed)actTed.style.color=fgH;
+      }
+    });
+    s.addEventListener('contextmenu',e=>{e.preventDefault();bgH=c;updColorUI();applyBackgroundColorToSel();});
     p.appendChild(s);
   });
   updCSlots();
@@ -1970,6 +2006,20 @@ function updCSlots(){
 }
 
 let cpTgt='fg', cpCSlotIdx=-1;
+let mobileColorTarget='fg';
+function updateMobileColorTargetUI(){
+  const f=document.getElementById('mobileFgColorBtn');
+  const b=document.getElementById('mobileBgColorBtn');
+  if(f)f.classList.toggle('active',mobileColorTarget==='fg');
+  if(b)b.classList.toggle('active',mobileColorTarget==='bg');
+}
+function applyBackgroundColorToSel(){
+  if(!selId)return;
+  const o=objs.find(x=>x.id===selId);if(!o)return;
+  if(o.type==='shape'&&document.getElementById('shapeFill')?.value==='bg'){
+    o.fillColor=bgH;renderAll();saveHDebounced();
+  }
+}
 // 모바일(터치 기반) 환경 감지: 네이티브 color input 대신 큰 팔레트 모달 사용
 const IS_TOUCH_DEVICE = window.matchMedia('(pointer:coarse)').matches;
 
@@ -2008,6 +2058,8 @@ function initCSlotLongPress(){
 
 function chooseColor(t){
   cpTgt=t;cpCSlotIdx=-1;
+  if(t==='fg'||t==='bg') mobileColorTarget=t;
+  updateMobileColorTargetUI();
   if(IS_TOUCH_DEVICE){
     openColorPickModal(t==='fg'?fgH:bgH, t==='fg'?'전경색 선택':'배경색 선택');
     return;
@@ -2031,7 +2083,11 @@ function clickCSlot(idx,_p,ev){
   }
   // 좌클릭: 색상 있으면 전경색 적용, 없으면 컬러피커로 색상 지정
   if(customSlots[idx]){
-    fgH=customSlots[idx];updColorUI();applyColorToSel();
+    if(IS_TOUCH_DEVICE&&mobileColorTarget==='bg'){
+      bgH=customSlots[idx];updColorUI();applyBackgroundColorToSel();
+    }else{
+      fgH=customSlots[idx];updColorUI();applyColorToSel();
+    }
   } else {
     cpTgt='cslot';cpCSlotIdx=idx;
     if(IS_TOUCH_DEVICE){ openColorPickModal('#ffffff','색상 지정'); return; }
@@ -2045,6 +2101,8 @@ let _colorPickCurrentHex='#000000';
 function openColorPickModal(initialHex, title){
   _colorPickCurrentHex=initialHex||'#000000';
   document.getElementById('colorPickTitle').textContent=title||'색상 선택';
+  const applyBtn=document.getElementById('colorPickApplyBtn');
+  if(applyBtn) applyBtn.textContent=cpTgt==='bg'?'배경색 적용':cpTgt==='fg'?'전경색 적용':'적용';
   document.getElementById('colorPickHex').value=_colorPickCurrentHex.toUpperCase();
   updateColorPickPreview(_colorPickCurrentHex);
   // RGB 슬라이더 초기화
@@ -2131,7 +2189,7 @@ function applyPickedColor(c){
   } else if(cpTgt==='fg'){
     fgH=c;applyColorToSel();updColorUI();
   } else {
-    bgH=c;updColorUI();
+    bgH=c;updColorUI();applyBackgroundColorToSel();
   }
 }
 
