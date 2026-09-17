@@ -716,7 +716,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.25 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.26 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -2759,6 +2759,17 @@ function duplicateInPlace(){
   selId=c.id; // 새 객체를 선택
   refreshList();
 }
+// ── 범위 선택에서 실제 편집 가능한 픽셀 객체만 수집
+// 숨김 레이어 / 잠긴 레이어 / 개별 잠금 객체는 범위 선택의 복사·이동·삭제 대상에서 제외한다.
+function getEditableMarquePixelObjs(sx,sy,sw,sh){
+  return objs.filter(o=>{
+    if(o.type!=='image'&&o.type!=='stroke') return false;
+    if(!isObjVisible(o)||!isObjEditable(o)) return false;
+    const b=getBounds(o);
+    return b.x<sx+sw && b.x+b.w>sx && b.y<sy+sh && b.y+b.h>sy;
+  });
+}
+
 // ── 픽셀 영역 잘라내기: flatten → 선택 영역 픽셀 추출 → 원본 지우기
 function marqueCut(isCopy=false){
   if(!marqueRect) return;
@@ -2770,12 +2781,20 @@ function marqueCut(isCopy=false){
   const sw=Math.min(rw, CW-sx), sh=Math.min(rh, CH-sy);
   if(sw<=0||sh<=0){marqueRect=null;drawMarque();return;}
 
-  // 1) 선택 영역과 겹치는 image/stroke만 픽셀 처리
-  const pixelObjs=objs.filter(o=>{
-    if(o.type==='text'||o.type==='shape') return false;
-    const b=getBounds(o);
-    return b.x<sx+sw && b.x+b.w>sx && b.y<sy+sh && b.y+b.h>sy;
-  });
+  // 1) 선택 영역과 겹치는 '편집 가능한' image/stroke만 픽셀 처리
+  //    잠긴 레이어의 내용은 스냅에도 들어가지 않고 원본에서도 제거되지 않는다.
+  if(isLayerLocked(activeLayerId)){
+    marqueDragging=false; marquePendingCut=false; marquePendingCopy=false;
+    document.getElementById('statusObj').textContent='현재 레이어가 잠겨 있어 범위 선택으로 편집할 수 없습니다.';
+    return;
+  }
+  const pixelObjs=getEditableMarquePixelObjs(sx,sy,sw,sh);
+  if(!pixelObjs.length){
+    marqueDragging=false; marquePendingCut=false; marquePendingCopy=false;
+    HC.style.cursor='crosshair';
+    document.getElementById('statusObj').textContent='선택 영역에 편집 가능한 픽셀이 없습니다. 잠긴 레이어의 내용은 선택되지 않습니다.';
+    return;
+  }
   const keepObjs=objs.filter(o=>!pixelObjs.includes(o));
 
   // 겹치는 image/stroke만 임시 캔버스에 렌더 → 픽셀 추출
@@ -2797,7 +2816,7 @@ function marqueCut(isCopy=false){
   const holeDataURL=holeCanvas.toDataURL('image/png');
   const holeImg=new Image();holeImg.src=holeDataURL;
   holeImg.onload=()=>{
-    const baseObj={id:mkId(),type:'image',img:holeImg,x:0,y:0,w:CW,h:CH,alpha:1};
+    const baseObj={id:mkId(),type:'image',img:holeImg,x:0,y:0,w:CW,h:CH,alpha:1,layerId:activeLayerId};
     const firstPixelIdx=objs.findIndex(o=>pixelObjs.includes(o));
     const newObjs=[...keepObjs];
     const insertAt=firstPixelIdx>=0 ? Math.min(firstPixelIdx, newObjs.length) : 0;
@@ -3024,6 +3043,10 @@ function marqueCopy(){
 // ── 영역선택 잘라내기 (복사 후 원본 지우기)
 function marqueCut2(){
   if(!marqueRect&&!marqueSnap) return false;
+  if(isLayerLocked(activeLayerId)){
+    document.getElementById('statusObj').textContent='현재 레이어가 잠겨 있어 범위 선택으로 잘라낼 수 없습니다.';
+    return false;
+  }
   if(marqueSnap){
     // 이미 잘린 상태 → 클립보드에 저장, snap은 버림(확정 안 함)
     pixelClip={snap:marqueSnap,w:marqueSnapW,h:marqueSnapH};
@@ -3033,27 +3056,39 @@ function marqueCut2(){
       `잘라내기: ${pixelClip.w}×${pixelClip.h} px — Ctrl+V로 붙여넣기`;
     return true;
   }
-  // 드래그 선택만 된 상태 → marqueCut()으로 잘라낸 뒤 클립보드에 저장
   if(!marqueRect) return false;
   const rx=Math.min(marqueRect.x,marqueRect.x+marqueRect.w);
   const ry=Math.min(marqueRect.y,marqueRect.y+marqueRect.h);
   const sw=Math.round(Math.abs(marqueRect.w)), sh=Math.round(Math.abs(marqueRect.h));
   if(sw<2||sh<2) return false;
-  // marqueCut()은 비동기(img.onload) → 직접 처리
   const sx=Math.max(0,Math.round(rx)), sy=Math.max(0,Math.round(ry));
   const csw=Math.min(sw,CW-sx), csh=Math.min(sh,CH-sy);
-  const full=flatten();
+  if(csw<=0||csh<=0) return false;
+
+  // 잠긴 레이어/객체는 잘라내기 대상에서 제외
+  const pixelObjs=getEditableMarquePixelObjs(sx,sy,csw,csh);
+  if(!pixelObjs.length){
+    document.getElementById('statusObj').textContent='선택 영역에 편집 가능한 픽셀이 없습니다. 잠긴 레이어의 내용은 잘라낼 수 없습니다.';
+    return false;
+  }
+  const keepObjs=objs.filter(o=>!pixelObjs.includes(o));
+  const full=document.createElement('canvas');full.width=CW;full.height=CH;
   const fc=full.getContext('2d');
+  pixelObjs.forEach(o=>drawO(fc,o,false));
   const snap=fc.getImageData(sx,sy,csw,csh);
   pixelClip={snap,w:csw,h:csh};
   fc.clearRect(sx,sy,csw,csh);
-  const nonOv=objs.filter(o=>{const b=getBounds(o);return!(b.x<sx+csw&&b.x+b.w>sx&&b.y<sy+csh&&b.y+b.h>sy);});
+
   const hc=document.createElement('canvas');hc.width=CW;hc.height=CH;
   hc.getContext('2d').drawImage(full,0,0);
   const hImg=new Image();
   hImg.onload=()=>{
-    const baseObj={id:mkId(),type:'image',img:hImg,x:0,y:0,w:CW,h:CH,alpha:1};
-    objs=[baseObj,...nonOv];
+    const baseObj={id:mkId(),type:'image',img:hImg,x:0,y:0,w:CW,h:CH,alpha:1,layerId:activeLayerId};
+    const firstPixelIdx=objs.findIndex(o=>pixelObjs.includes(o));
+    const newObjs=[...keepObjs];
+    const insertAt=firstPixelIdx>=0?Math.min(firstPixelIdx,newObjs.length):0;
+    newObjs.splice(insertAt,0,baseObj);
+    objs=newObjs;
     marqueSnap=null;marqueRect=null;marqueCommitted=false;
     drawMarque();saveH();renderAll();
     document.getElementById('statusObj').textContent=
@@ -3341,6 +3376,12 @@ function onDown(e){
 
   // ── 영역 선택 툴 (픽셀 방식)
   if(tool==='marque'){
+    if(isLayerLocked(activeLayerId)){
+      marqueDragging=false;marquePendingCut=false;marquePendingCopy=false;
+      HC.style.cursor='not-allowed';
+      document.getElementById('statusObj').textContent='현재 레이어가 잠겨 있어 범위 선택으로 편집할 수 없습니다.';
+      return;
+    }
     if(marqueSnap){
       if(xi>=marqueSnapX&&xi<=marqueSnapX+marqueSnapW&&
          yi>=marqueSnapY&&yi<=marqueSnapY+marqueSnapH){
@@ -3833,8 +3874,9 @@ function flatten(){
 // 픽셀 편집용: image/stroke 타입만 렌더 (text/shape 제외 → 겹침 방지)
 function flattenPixels(){
   const tmp=document.createElement('canvas');tmp.width=CW;tmp.height=CH;
-  const tc=tmp.getContext('2d');tc.fillStyle='#fff';tc.fillRect(0,0,CW,CH);
-  getRenderObjects().filter(o=>o.type==='image'||o.type==='stroke')
+  const tc=tmp.getContext('2d');
+  // 범위 선택용 픽셀 평탄화: 잠긴 레이어/객체는 복사 대상에서도 제외
+  getRenderObjects().filter(o=>(o.type==='image'||o.type==='stroke')&&isObjEditable(o))
       .forEach(o=>drawO(tc,o,false));
   return tmp;
 }
