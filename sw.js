@@ -1,4 +1,4 @@
-const CACHE_NAME = 'easy-paint-pad-v45';
+const CACHE_NAME = 'easy-paint-pad-v46';
 const ASSETS = [
   './',
   './index.html',
