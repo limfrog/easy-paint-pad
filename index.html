@@ -716,7 +716,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.26 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.27 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -3290,11 +3290,17 @@ HC.addEventListener('dblclick',onDbl);
 // ── 터치(1손가락) → 그리기/선택 직접 처리 (synthetic MouseEvent 대신 좌표 직접 전달)
 (function(){
   let touchActive=false;
+  let touchMoved=false;
+  let touchStartX=0,touchStartY=0,lastTouchX=0,lastTouchY=0;
   let lastTapTime=0, lastTapX=0, lastTapY=0;
 
-  // touch 객체에서 onDown/onMove가 필요로 하는 최소 형태의 pseudo-event 생성
+  // touch 객체/좌표에서 onDown/onMove/onDbl이 필요로 하는 최소 형태의 pseudo-event 생성
   function pseudoEvent(touch){
     return { clientX: touch.clientX, clientY: touch.clientY,
+             ctrlKey:false, metaKey:false, shiftKey:false, preventDefault(){} };
+  }
+  function pseudoEventXY(x,y){
+    return { clientX:x, clientY:y,
              ctrlKey:false, metaKey:false, shiftKey:false, preventDefault(){} };
   }
 
@@ -3302,20 +3308,13 @@ HC.addEventListener('dblclick',onDbl);
     if(e.touches.length!==1) return; // 2손가락 이상은 핀치줌이 처리
     e.preventDefault();
     touchActive=true;
+    touchMoved=false;
     const t=e.touches[0];
-    const now=Date.now();
-    const dx=Math.abs(t.clientX-lastTapX), dy=Math.abs(t.clientY-lastTapY);
-    if(now-lastTapTime<300 && dx<20 && dy<20){
-      // 더블탭: 텍스트 편집 모드 진입만 하고 onDown은 호출하지 않음
-      // (onDown을 이어서 호출하면 actTed가 있다는 이유로 즉시 commitT()가 실행되어
-      //  방금 연 편집기가 바로 닫혀버림)
-      onDbl(pseudoEvent(t));
-      lastTapTime=0;
-      touchActive=false; // 이 터치 시퀀스에서는 더 이상 onMove/onUp도 그리기로 처리하지 않음
-      return;
-    } else {
-      lastTapTime=now; lastTapX=t.clientX; lastTapY=t.clientY;
-    }
+    touchStartX=lastTouchX=t.clientX;
+    touchStartY=lastTouchY=t.clientY;
+
+    // 더블탭 여부를 touchstart에서 확정하지 않는다.
+    // 두 번째 터치가 실제 드래그로 이어질 수 있으므로 항상 정상적인 onDown을 먼저 시작한다.
     onDown(pseudoEvent(t));
   },{passive:false});
 
@@ -3324,12 +3323,15 @@ HC.addEventListener('dblclick',onDbl);
     if(e.touches.length!==1){
       // 두 번째 손가락이 추가됨 → 핀치줌으로 전환, 진행 중이던 드로잉/드래그 정리
       touchActive=false;
+      touchMoved=true;
       onUp();
       document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,cancelable:true}));
       return;
     }
     e.preventDefault();
     const t=e.touches[0];
+    lastTouchX=t.clientX; lastTouchY=t.clientY;
+    if(Math.abs(lastTouchX-touchStartX)>5 || Math.abs(lastTouchY-touchStartY)>5) touchMoved=true;
     onMove(pseudoEvent(t));
   },{passive:false});
 
@@ -3338,8 +3340,24 @@ HC.addEventListener('dblclick',onDbl);
     touchActive=false;
     onUp();
     document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,cancelable:true}));
+
+    // 손가락이 실제로 움직이지 않은 '탭' 두 번만 더블탭으로 인정한다.
+    // 따라서 객체를 한 번 선택한 뒤 곧바로 두 번째 터치로 드래그해도 이동이 막히지 않는다.
+    if(!touchMoved){
+      const now=Date.now();
+      const dx=Math.abs(lastTouchX-lastTapX), dy=Math.abs(lastTouchY-lastTapY);
+      if(lastTapTime && now-lastTapTime<300 && dx<20 && dy<20){
+        onDbl(pseudoEventXY(lastTouchX,lastTouchY));
+        lastTapTime=0;
+      }else{
+        lastTapTime=now; lastTapX=lastTouchX; lastTapY=lastTouchY;
+      }
+    }else{
+      // 드래그가 발생했으면 직전 탭과 이어져 더블탭으로 오인되지 않도록 초기화
+      lastTapTime=0;
+    }
   });
-  HC.addEventListener('touchcancel', ()=>{ touchActive=false; });
+  HC.addEventListener('touchcancel', ()=>{ touchActive=false; touchMoved=true; lastTapTime=0; });
 })();
 
 // 마우스가 캔버스 밖으로 나가도 드래그 중인 동작(영역선택 등)이 계속되도록
