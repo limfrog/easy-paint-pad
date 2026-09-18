@@ -721,15 +721,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.0.0 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.0.1 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
         설치 없이 HTML 파일 하나로 모든 기능이 동작합니다.<br><br>
         · 도형·텍스트·이미지 객체 편집<br>
-        · 레이어 · 오선 · 마디줄 · 음악기호<br>
-        · Shuffle 1/2 · 붙임줄 · 영역선택<br>
-        · EPP 프로젝트 저장 · PDF 출력<br>
+        · 레이어 · 오선 · 마디줄 · 영역선택<br>
+        · EPP 프로젝트 저장 · 이미지/PDF 출력<br>
         · 모바일 터치 편집 · 라이트/다크 테마
       </div>
       <div style="font-size:11px;color:var(--muted)">
@@ -745,15 +744,15 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.0.0 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.0.1 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.0.0</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
-          이미지·텍스트·도형·오선·음악기호를 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
+          <b style="color:var(--text)">Easy Paint Pad 2.0.1</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
         <h3 style="margin:0 0 8px;font-size:14px;color:var(--accent)">🗂 1. 파일 · 캔버스</h3>
@@ -761,7 +760,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
           <tr><td style="padding:3px 8px;color:var(--muted);width:145px">새 파일</td><td>빈 캔버스로 새 작업 시작</td><td style="color:var(--muted);text-align:right">Ctrl+N</td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">열기</td><td>이미지 또는 EPP 프로젝트 열기</td><td style="color:var(--muted);text-align:right">Ctrl+O</td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">저장</td><td>현재 작업을 EPP 프로젝트로 저장</td><td style="color:var(--muted);text-align:right">Ctrl+S</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">다른 이름으로 저장</td><td>PNG·JPEG·WebP 등 형식을 선택하여 저장</td><td style="color:var(--muted);text-align:right">Ctrl+Shift+S</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">다른 이름으로 저장</td><td>PNG·JPEG·WebP 등 형식을 선택하여 저장. 모바일에서는 시스템 공유/파일 저장 창을 사용</td><td style="color:var(--muted);text-align:right">Ctrl+Shift+S</td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">EPP 저장</td><td>객체·레이어·스타일을 유지하는 편집용 프로젝트 저장</td><td style="color:var(--muted);text-align:right">Ctrl+E</td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">PDF 저장 / 인쇄</td><td>A4 PDF 저장 또는 브라우저 인쇄</td><td style="color:var(--muted);text-align:right">Ctrl+P</td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">캔버스 크기</td><td>파일 탭의 너비·높이를 지정하고 [적용]</td><td></td></tr>
@@ -790,12 +789,9 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
           오선의 마디줄은 오선 전체 높이를 가로지르고, 직선의 마디줄은 선과 직각인 짧은 표시선으로 생성됩니다.
         </div>
 
-        <h3 style="margin:15px 0 8px;font-size:14px;color:var(--accent)">🎼 4. 음악 도형</h3>
+        <h3 style="margin:15px 0 8px;font-size:14px;color:var(--accent)">🎼 4. 도형</h3>
         <table style="width:100%;border-collapse:collapse;font-size:11px">
-          <tr><td style="padding:3px 8px;color:var(--muted);width:145px">도형 도구</td><td>높은음자리표·낮은음자리표·가온음자리표, 조표, 쉼표, 음표, 반복기호, 세로줄 등을 삽입</td><td style="color:var(--muted);text-align:right">M</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">붙임줄 위 / 아래</td><td>위쪽·아래쪽 방향의 붙임줄을 독립 객체로 삽입</td><td></td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">Shuffle 1</td><td>8분음표 2개 = 가운데 음이 생략된 셋잇단음표 형태의 셔플 리듬 기호</td><td></td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">Shuffle 2</td><td>점8분음표 + 16분음표 = 가운데 음이 생략된 셋잇단음표 형태의 셔플 리듬 기호</td><td></td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted);width:145px">도형 도구</td><td>높은음자리표·낮은음자리표·가온음자리표, 조표, 쉼표, 음표, 반복기호, 세로줄, 붙임줄 위·아래, Shuffle 표현기호 1·2 등을 삽입</td><td style="color:var(--muted);text-align:right">M</td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">크기</td><td>삽입 시 현재 텍스트 크기를 기준으로 생성되고, 이후 객체 핸들로 다시 조절 가능</td><td></td></tr>
         </table>
 
@@ -4311,10 +4307,60 @@ function markSaved(){
   const t=document.getElementById('titleText');
   if(t) t.textContent=t.textContent.replace(/^● /,'');
 }
-function saveFile(){
+function dataUrlToBlob(dataUrl){
+  const parts=dataUrl.split(',');
+  const mime=(parts[0].match(/data:([^;]+)/)||[])[1]||'application/octet-stream';
+  const bin=atob(parts[1]);
+  const bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  return new Blob([bytes],{type:mime});
+}
+function isMobileExportDevice(){
+  return (window.matchMedia&&window.matchMedia('(pointer:coarse)').matches) ||
+         /Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
+}
+async function exportCanvasImage(fileName,mime='image/png',quality=0.92){
+  // dataURL -> Blob 변환을 동기적으로 끝낸 뒤, 같은 사용자 클릭 흐름 안에서
+  // Web Share를 호출하여 iOS/Android의 저장·공유 시트가 즉시 닫히지 않게 한다.
+  const canvas=flatten();
+  const dataUrl=mime==='image/png'?canvas.toDataURL('image/png'):canvas.toDataURL(mime,quality);
+  const blob=dataUrlToBlob(dataUrl);
+  let file=null;
+  try{ file=new File([blob],fileName,{type:mime,lastModified:Date.now()}); }catch(_){}
+
+  if(isMobileExportDevice() && file && navigator.share){
+    const shareData={files:[file],title:fileName};
+    let canShare=true;
+    try{ if(navigator.canShare) canShare=navigator.canShare(shareData); }catch(_){}
+    if(canShare){
+      try{
+        await navigator.share(shareData);
+        return true;
+      }catch(err){
+        // 사용자가 직접 닫은 경우에는 다운로드를 다시 띄우지 않는다.
+        if(err && (err.name==='AbortError'||err.name==='NotAllowedError')) return false;
+        console.warn('모바일 공유 저장 실패, 다운로드 방식으로 전환:',err);
+      }
+    }
+  }
+
+  // 데스크톱 및 Web Share 미지원 브라우저
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.download=fileName;
+  a.href=url;
+  a.style.display='none';
+  document.body.appendChild(a);
+  a.click();
+  // 일부 모바일 브라우저는 클릭 직후 URL을 해제하면 저장 창이 닫힐 수 있으므로 충분히 늦게 정리
+  setTimeout(()=>{ try{URL.revokeObjectURL(url);}catch(_){} a.remove(); },60000);
+  return true;
+}
+async function saveFile(){
   const n=(curFile||'Easy_Paint_Pad').replace(/\.[^.]+$/,'');
-  const a=document.createElement('a');a.download=n+'.png';a.href=flatten().toDataURL('image/png');a.click();
-  markSaved();
+  const ok=await exportCanvasImage(n+'.png','image/png',1);
+  if(ok) markSaved();
+  return ok;
 }
 // ── 새 파일로 열기
 function loadImageFile(file){
@@ -4440,16 +4486,19 @@ function onQualityChange(val){
   document.getElementById('qualityBadge').textContent=val+'%';
   document.getElementById('qualitySlider').style.background=`linear-gradient(to right,var(--accent) ${((val-10)/90)*100}%,#ddd ${((val-10)/90)*100}%)`;
 }
-function executeSaveAs(){
+async function executeSaveAs(){
   const n=document.getElementById('saveFileName').value.trim()||'Easy_Paint_Pad';
   const q=parseInt(document.getElementById('qualitySlider').value)/100;
   const mime={png:'image/png',jpeg:'image/jpeg',webp:'image/webp'}[selFmt]||'image/png';
   const ext=selFmt==='jpeg'?'jpg':selFmt;
-  const url=selFmt==='png'?flatten().toDataURL('image/png'):flatten().toDataURL(mime,q);
-  const a=document.createElement('a');a.download=`${n}.${ext}`;a.href=url;a.click();
-  curFile=`${n}.${ext}`;document.getElementById('titleText').textContent=curFile+' - Easy Paint Pad';
-  markSaved();
+  const fileName=`${n}.${ext}`;
+  // 모바일에서는 모달을 먼저 닫고 같은 클릭 이벤트 안에서 즉시 시스템 공유/저장 시트를 호출
   closeSaveAs();
+  const ok=await exportCanvasImage(fileName,mime,q);
+  if(!ok) return;
+  curFile=fileName;
+  document.getElementById('titleText').textContent=curFile+' - Easy Paint Pad';
+  markSaved();
 }
 document.getElementById('saveAsModal').addEventListener('click',e=>{if(e.target===document.getElementById('saveAsModal'))closeSaveAs();});
 
@@ -4677,11 +4726,11 @@ function hideSaveConfirm(){
   document.getElementById('saveConfirmOverlay').classList.add('hidden');
   _scCallback=null;
 }
-function scSaveImg(){
+async function scSaveImg(){
   const cb=_scCallback;
   hideSaveConfirm();
-  saveFile();
-  setTimeout(()=>{cb&&cb();},100);
+  const ok=await saveFile();
+  if(ok) cb&&cb();
 }
 function scSaveEPP(){
   const cb=_scCallback;
