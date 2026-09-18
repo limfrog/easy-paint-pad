@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.34 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.35 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -1354,60 +1354,87 @@ function noteHead(cx,cy,rx,ry,rot=-24){
   return `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" transform="rotate(${rot} ${cx} ${cy})"/>`;
 }
 
+
 function makeTupletFeelSvg(kind,size,color){
   const dotted=kind==='tupletFeel2';
-  // 두 셔플 기호가 같은 크기로 보이도록 동일한 캔버스 크기 안에 맞춰 그린다.
-  const w=Math.max(220,Math.round(size*9.2));
-  const h=Math.max(64,Math.round(size*2.7));
-  const sw=Math.max(2.2,size*0.12);
-  const beamW=sw*2.0;
-  const rx=Math.max(6.5,size*0.23), ry=Math.max(4.8,size*0.17);
-  const leftX1=w*0.12, leftX2=w*0.30;
-  const rightX1=w*0.69, rightX2=w*0.87;
-  const noteY=h*0.76;
-  const beamY=h*0.26;
-  const stemTop1=h*0.34;
-  const stemTop2=h*0.40;
-  const dotCx=leftX1+rx*2.0;
-  const dotCy=noteY-rx*1.28;
+  // Shuffle 1/2를 참고 그림과 최대한 비슷하게 벡터 기호로 그린다.
+  // 두 기호 모두 같은 외곽 크기로 만들어 삽입 시 동일한 크기로 보이게 한다.
+  const w=Math.max(230,Math.round(size*9.4));
+  const h=Math.max(66,Math.round(size*2.8));
+  const sw=Math.max(2.2,size*0.115);
+  const beamW=Math.max(5,sw*2.1);
+  const rx=Math.max(7,size*0.23), ry=Math.max(5,size*0.17);
+
+  const leftX1=w*0.12, leftX2=w*0.31;
   const eqX=w*0.50;
-  const eqGap=Math.max(7,size*0.38);
-  const eqHalf=Math.max(8,size*0.28);
-  const eqY1=h*0.47, eqY2=h*0.47+eqGap;
-  const bracketY=h*0.12, bracketStem=h*0.16;
-  const bracketLeft=rightX1-rx*0.9, bracketRight=rightX2+rx*0.95;
+  const rightX1=w*0.70, rightX2=w*0.88;
+  const noteY=h*0.77;
+
+  // left group
+  const leftStemX1=leftX1+rx*0.70, leftStemX2=leftX2+rx*0.70;
+  const leftBeamY=h*0.25;
+  const shortBeamLen=(leftStemX2-leftStemX1)*0.38;
+  const shortBeamX1=leftStemX2-shortBeamLen;
+  const beamGap=Math.max(5,size*0.16); // long beam과 short beam 사이 간격
+  const shortBeamY=leftBeamY+beamGap+beamW*0.18;
+  const stemBottomY=noteY-ry*0.55;
+  const dotCx=leftX1+rx*2.05;
+  const dotCy=noteY-rx*1.18;
+
+  // equals
+  const eqHalf=Math.max(8,size*0.30);
+  const eqGap=Math.max(8,size*0.34);
+  const eqY1=h*0.49, eqY2=eqY1+eqGap;
+
+  // right triplet group
+  const rightStemX1=rightX1+rx*0.60, rightStemX2=rightX2+rx*0.60;
+  const rightStemTopY1=h*0.34;
+  const rightStemTopY2=h*0.33;
+  const bracketY=h*0.12;
+  const bracketStem=h*0.15;
+  const bracketLeft=rightStemX1-sw*1.0;
+  const bracketRight=rightStemX2+sw*0.6;
   const numeralX=(bracketLeft+bracketRight)/2;
-  const numeralY=bracketY+sw*0.65;
-  const parenStartX=bracketRight+sw*1.1;
-  const parenCtrlX=parenStartX+Math.max(7,size*0.22);
-  const parenTopY=bracketY+bracketStem*0.10;
-  const parenBottomY=h*0.80;
-  const parenMidY=h*0.49;
+  const numeralY=bracketY+sw*0.45;
+  const flagStartX=rightStemX2;
+  const flagStartY=rightStemTopY2+beamW*0.08;
+  const flagMidX=flagStartX+Math.max(9,size*0.28);
+  const flagEndY=h*0.80;
+  const flagCtrlY=h*0.46;
+
+  const leftExtra=dotted?`<rect x="${shortBeamX1}" y="${shortBeamY}" width="${shortBeamLen}" height="${beamW}" rx="${beamW*0.12}" ry="${beamW*0.12}"/>`:'';
+  const leftDot=dotted?`<circle cx="${dotCx}" cy="${dotCy}" r="${Math.max(1.8,sw*0.80)}"/>`:'';
+
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
     <g shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
       <g fill="${escXml(color)}" stroke="${escXml(color)}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">
         ${noteHead(leftX1,noteY,rx,ry)}
         ${noteHead(leftX2,noteY,rx,ry)}
-        <line x1="${leftX1+rx*0.72}" y1="${noteY-ry*0.55}" x2="${leftX1+rx*0.72}" y2="${beamY}"/>
-        <line x1="${leftX2+rx*0.72}" y1="${noteY-ry*0.55}" x2="${leftX2+rx*0.72}" y2="${beamY}"/>
-        <line x1="${leftX1+rx*0.72}" y1="${beamY}" x2="${leftX2+rx*0.72}" y2="${beamY}" stroke-width="${beamW}"/>
-        ${dotted?`<circle cx="${dotCx}" cy="${dotCy}" r="${Math.max(1.8,sw*0.82)}"/>`:''}
+        ${leftDot}
+        <line x1="${leftStemX1}" y1="${stemBottomY}" x2="${leftStemX1}" y2="${leftBeamY+beamW}"/>
+        <line x1="${leftStemX2}" y1="${stemBottomY}" x2="${leftStemX2}" y2="${dotted?shortBeamY+beamW:leftBeamY+beamW}"/>
+        <rect x="${leftStemX1}" y="${leftBeamY}" width="${leftStemX2-leftStemX1}" height="${beamW}" rx="${beamW*0.12}" ry="${beamW*0.12}"/>
+        ${leftExtra}
+
         <line x1="${eqX-eqHalf}" y1="${eqY1}" x2="${eqX+eqHalf}" y2="${eqY1}"/>
         <line x1="${eqX-eqHalf}" y1="${eqY2}" x2="${eqX+eqHalf}" y2="${eqY2}"/>
+
         ${noteHead(rightX1,noteY,rx,ry)}
         ${noteHead(rightX2,noteY,rx,ry)}
-        <line x1="${rightX1+rx*0.72}" y1="${noteY-ry*0.55}" x2="${rightX1+rx*0.72}" y2="${stemTop1}"/>
-        <line x1="${rightX2+rx*0.72}" y1="${noteY-ry*0.55}" x2="${rightX2+rx*0.72}" y2="${stemTop2}"/>
-        <line x1="${bracketLeft}" y1="${bracketY}" x2="${bracketRight}" y2="${bracketY}"/>
+        <line x1="${rightStemX1}" y1="${stemBottomY}" x2="${rightStemX1}" y2="${rightStemTopY1}"/>
+        <line x1="${rightStemX2}" y1="${stemBottomY}" x2="${rightStemX2}" y2="${rightStemTopY2}"/>
+        <line x1="${bracketLeft}" y1="${bracketY}" x2="${numeralX-eqHalf*0.9}" y2="${bracketY}"/>
+        <line x1="${numeralX+eqHalf*0.9}" y1="${bracketY}" x2="${bracketRight}" y2="${bracketY}"/>
         <line x1="${bracketLeft}" y1="${bracketY}" x2="${bracketLeft}" y2="${bracketY+bracketStem}"/>
         <line x1="${bracketRight}" y1="${bracketY}" x2="${bracketRight}" y2="${bracketY+bracketStem}"/>
-        <path d="M ${parenStartX} ${parenTopY} Q ${parenCtrlX} ${parenMidY} ${parenStartX} ${parenBottomY}" fill="none"/>
+        <path d="M ${flagStartX} ${flagStartY} Q ${flagMidX} ${flagCtrlY} ${flagStartX+sw*0.7} ${flagEndY}" fill="none"/>
       </g>
-      <text x="${numeralX}" y="${numeralY}" text-anchor="middle" dominant-baseline="hanging" font-family="Georgia, 'Times New Roman', serif" font-size="${Math.max(14,size*0.78)}" fill="${escXml(color)}">3</text>
+      <text x="${numeralX}" y="${numeralY}" text-anchor="middle" dominant-baseline="hanging" font-family="Georgia, 'Times New Roman', serif" font-size="${Math.max(14,size*0.80)}" fill="${escXml(color)}">3</text>
     </g>
   </svg>`;
   return {dataUrl:svgDataUrl(svg),w,h};
 }
+
 function createMusicSymbolAsset(def,size){
   const color=symbolColorCss();
   if(def.key==='tieUp') return makeTieSvg('up',size,color);
