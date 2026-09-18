@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.37 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.38 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -941,6 +941,12 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
             <option value="135">대각 135°</option>
             <option value="shift">Shift고정</option>
           </select>
+        </div>
+        <div id="measureBarsRow" style="display:none;align-items:center;gap:4px">
+          <div class="vdiv" style="height:16px;margin:0 2px"></div>
+          <label style="display:flex;align-items:center;gap:4px;font-size:9px;color:var(--text);white-space:nowrap;cursor:pointer">
+            <input id="measureBarsCheck" type="checkbox" style="margin:0;accent-color:var(--accent)"> 마디줄
+          </label>
         </div>
       </div>
     </div>
@@ -1599,6 +1605,22 @@ function dShape(c,o,hit){
     c.beginPath();c.moveTo(x1+off,y1+off);c.lineTo(x2+off,y2+off);
     if(hit)c.lineWidth=Math.max(o.strokeWidth,12);
     c.stroke();
+    if(o.measureBars){
+      const dx=x2-x1,dy=y2-y1,dist=Math.hypot(dx,dy);
+      if(dist>0.5){
+        // 주 선의 방향에 정확히 직각인 단위 벡터
+        const nx=-dy/dist,ny=dx/dist;
+        // 직선은 자체 높이가 없으므로 화면에서 읽기 좋은 고정 마디줄 길이를 사용한다.
+        const half=Math.max(8,Math.min(18,10+o.strokeWidth*1.5));
+        [0.25,0.5,0.75,1].forEach(f=>{
+          const px=x1+dx*f+off,py=y1+dy*f+off;
+          c.beginPath();
+          c.moveTo(px-nx*half,py-ny*half);
+          c.lineTo(px+nx*half,py+ny*half);
+          c.stroke();
+        });
+      }
+    }
   }
   else if(o.shape==='rect'){
     const x=Math.min(x1,x2), y=Math.min(y1,y2);
@@ -1656,6 +1678,13 @@ function dShape(c,o,hit){
       for(let i=0;i<5;i++){
         const ly=Math.round(ty+(h/(5-1))*i)+0.5;
         c.beginPath();c.moveTo(lx,ly);c.lineTo(rx,ly);c.stroke();
+      }
+      if(o.measureBars){
+        // 시작점→끝점 기준 1/4, 2/4, 3/4, 끝점에 오선과 직각인 마디줄을 그린다.
+        [0.25,0.5,0.75,1].forEach(f=>{
+          const bx=Math.round(x1+(x2-x1)*f)+0.5;
+          c.beginPath();c.moveTo(bx,ty+0.5);c.lineTo(bx,by+0.5);c.stroke();
+        });
       }
     }
   }
@@ -1784,6 +1813,21 @@ function getBounds(o){
   if(o.type==='shape'){
     const x=Math.min(o.x1,o.x2),y=Math.min(o.y1,o.y2),w=Math.abs(o.x2-o.x1),h=Math.abs(o.y2-o.y1);
     const pd=o.strokeWidth/2;
+    if(o.shape==='line'&&o.measureBars){
+      const dx=o.x2-o.x1,dy=o.y2-o.y1,dist=Math.hypot(dx,dy);
+      if(dist>0.5){
+        const nx=-dy/dist,ny=dx/dist;
+        const half=Math.max(8,Math.min(18,10+o.strokeWidth*1.5));
+        const pts=[{x:o.x1,y:o.y1},{x:o.x2,y:o.y2}];
+        [0.25,0.5,0.75,1].forEach(f=>{
+          const px=o.x1+dx*f,py=o.y1+dy*f;
+          pts.push({x:px-nx*half,y:py-ny*half},{x:px+nx*half,y:py+ny*half});
+        });
+        const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
+        const minX=Math.min(...xs),minY=Math.min(...ys),maxX=Math.max(...xs),maxY=Math.max(...ys);
+        return{x:minX-pd,y:minY-pd,w:Math.max(maxX-minX,1)+pd*2,h:Math.max(maxY-minY,1)+pd*2};
+      }
+    }
     return{x:x-pd,y:y-pd,w:Math.max(w,1)+pd*2,h:Math.max(h,1)+pd*2};
   }
   if(o.type==='text'){
@@ -2133,6 +2177,8 @@ function setTool(t){
   // 직선/화살표 도구일 때 각도 옵션 표시
   const lar=document.getElementById('lineAngleRow');
   if(lar) lar.style.display=(t==='line'||t==='arrow')?'flex':'none';
+  const mbr=document.getElementById('measureBarsRow');
+  if(mbr) mbr.style.display=(t==='line'||t==='staff')?'flex':'none';
   const ms=document.getElementById('musicSymbolSection');
   if(ms) ms.style.display=t==='musicSymbol'?'flex':'none';
   if(t==='musicSymbol') updateMusicSymbolPreview();
@@ -3739,7 +3785,8 @@ function onDown(e){
   }
   if(['line','rect','ellipse','arrow','staff'].includes(tool)){
     const fm=document.getElementById('shapeFill').value;
-    const o={id:mkId(),type:'shape',layerId:activeLayerId,shape:tool,x1:xi,y1:yi,x2:xi,y2:yi,strokeColor:fgH,strokeWidth:sw,alpha:fgA,fillColor:fm==='fg'?fgH:fm==='bg'?bgH:'transparent'};
+    const useMeasureBars=(tool==='line'||tool==='staff')&&!!document.getElementById('measureBarsCheck')?.checked;
+    const o={id:mkId(),type:'shape',layerId:activeLayerId,shape:tool,x1:xi,y1:yi,x2:xi,y2:yi,strokeColor:fgH,strokeWidth:sw,alpha:fgA,fillColor:fm==='fg'?fgH:fm==='bg'?bgH:'transparent',measureBars:useMeasureBars};
     actShape=o;objs.push(o);
   }
 }
