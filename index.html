@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.36 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.37 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -1864,7 +1864,7 @@ function drawSel(){
   // - 실제 클릭/터치 판정 영역은 투명한 큰 사각형(터치 28px / 마우스 20px)으로 따로 둬서 조작은 쉽게
   // - 평소 반투명, 마우스를 올리면 또렷해짐(CSS .selh:hover)
   const isTouch = window.matchMedia('(pointer: coarse)').matches;
-  const vs=px(9), hs=px(isTouch?28:20); // 보이는 크기 / 잡는 영역 크기
+  const vs=px(9), hs=px(isTouch?36:20); // 보이는 크기 / 잡는 영역 크기
   const cursors=['nw-resize','n-resize','ne-resize','w-resize','e-resize','sw-resize','s-resize','se-resize'];
   [[x,y],[x+w/2,y],[x+w,y],[x,y+h/2],[x+w,y+h/2],[x,y+h],[x+w/2,y+h],[x+w,y+h]].forEach(([hx2,hy],i)=>{
     const g=document.createElementNS(ns,'g');
@@ -1884,6 +1884,7 @@ function drawSel(){
     hit.setAttribute('width',hs);hit.setAttribute('height',hs);
     hit.setAttribute('fill','transparent');
     hit.style.pointerEvents='all';
+    hit.style.touchAction='none';
     hit.style.cursor=cursors[i]||'se-resize';
     hit.dataset.hi=i;
     g.appendChild(hit);
@@ -1946,19 +1947,78 @@ function finishSelMarquee(){
 }
 
 // ════════════ SVG RESIZE ════════════
-let svgR=false,svgHi=-1,svgSX=0,svgSY=0,svgOrigO=null,svgOrigB=null;
+let svgR=false,svgHi=-1,svgSX=0,svgSY=0,svgOrigO=null,svgOrigB=null,svgPointerId=null;
 SV.style.pointerEvents='none'; // individual handles set their own pointer-events
-SV.addEventListener('mousedown',e=>{
-  if(e.target.dataset.hi===undefined||!selId)return;
-  e.stopPropagation();e.preventDefault();
-  svgR=true;svgHi=+e.target.dataset.hi;
-  const r=HC.getBoundingClientRect();
-  svgSX=(e.clientX-r.left)/zoom;svgSY=(e.clientY-r.top)/zoom;
+
+function beginSvgResize(hi,clientX,clientY){
+  if(hi===undefined||hi===null||!selId)return false;
   const o=objs.find(x=>x.id===selId);
-  if(!isObjEditable(o)) return;
+  if(!isObjEditable(o))return false;
+  const r=HC.getBoundingClientRect();
+  svgR=true;svgHi=+hi;
+  svgSX=(clientX-r.left)/zoom;svgSY=(clientY-r.top)/zoom;
   svgOrigO=JSON.parse(JSON.stringify(o));
   svgOrigB=getBounds(o);
+  return true;
+}
+function finishSvgResize(){
+  if(!svgR)return;
+  svgR=false;svgPointerId=null;
+  saveH();
+}
+
+// Pointer Events: 모바일/펜/마우스를 하나의 경로로 처리.
+// 모바일에서는 SVG 핸들이 hitCanvas 위에 있으므로 HC의 touchstart가 아니라 여기서 직접 잡아야 한다.
+SV.addEventListener('pointerdown',e=>{
+  const hi=e.target?.dataset?.hi;
+  if(hi===undefined)return;
+  e.preventDefault();e.stopPropagation();
+  if(!beginSvgResize(hi,e.clientX,e.clientY))return;
+  svgPointerId=e.pointerId;
+  try{SV.setPointerCapture(e.pointerId);}catch(_){}
 });
+SV.addEventListener('pointermove',e=>{
+  if(!svgR||svgPointerId===null||e.pointerId!==svgPointerId)return;
+  e.preventDefault();e.stopPropagation();
+  const r=HC.getBoundingClientRect();
+  doSvgResize((e.clientX-r.left)/zoom,(e.clientY-r.top)/zoom);
+});
+SV.addEventListener('pointerup',e=>{
+  if(!svgR||svgPointerId===null||e.pointerId!==svgPointerId)return;
+  e.preventDefault();e.stopPropagation();
+  try{SV.releasePointerCapture(e.pointerId);}catch(_){}
+  finishSvgResize();
+});
+SV.addEventListener('pointercancel',e=>{
+  if(!svgR||svgPointerId===null||e.pointerId!==svgPointerId)return;
+  e.preventDefault();e.stopPropagation();
+  finishSvgResize();
+});
+
+// 구형 브라우저 fallback
+if(!window.PointerEvent){
+  SV.addEventListener('mousedown',e=>{
+    const hi=e.target?.dataset?.hi;
+    if(hi===undefined)return;
+    e.stopPropagation();e.preventDefault();
+    beginSvgResize(hi,e.clientX,e.clientY);
+  });
+  SV.addEventListener('touchstart',e=>{
+    const hi=e.target?.dataset?.hi;
+    if(hi===undefined||e.touches.length!==1)return;
+    e.stopPropagation();e.preventDefault();
+    const t=e.touches[0];
+    beginSvgResize(hi,t.clientX,t.clientY);
+  },{passive:false});
+  document.addEventListener('touchmove',e=>{
+    if(!svgR||e.touches.length!==1)return;
+    e.preventDefault();
+    const t=e.touches[0],r=HC.getBoundingClientRect();
+    doSvgResize((t.clientX-r.left)/zoom,(t.clientY-r.top)/zoom);
+  },{passive:false});
+  document.addEventListener('touchend',()=>{ if(svgR)finishSvgResize(); });
+  document.addEventListener('touchcancel',()=>{ if(svgR)finishSvgResize(); });
+}
 function doSvgResize(x,y){
   const dx=x-svgSX,dy=y-svgSY,ob=svgOrigB;
   const anch=[[0,0],[0.5,0],[1,0],[0,0.5],[1,0.5],[0,1],[0.5,1],[1,1]];
@@ -3831,10 +3891,10 @@ function onDbl(e){
 }
 
 document.addEventListener('mousemove',e=>{
-  if(svgR){const r=HC.getBoundingClientRect();doSvgResize((e.clientX-r.left)/zoom,(e.clientY-r.top)/zoom);}
+  if(svgR&&svgPointerId===null){const r=HC.getBoundingClientRect();doSvgResize((e.clientX-r.left)/zoom,(e.clientY-r.top)/zoom);}
 });
 document.addEventListener('mouseup',()=>{
-  if(svgR){ svgR=false; saveH(); return; }
+  if(svgR&&svgPointerId===null){ finishSvgResize(); return; }
   if(selMarqueeActive){ finishSelMarquee(); return; }
   if(dragging){ dragging=false; HC.style.cursor='default'; saveH(); return; }
   if(marqueDragging){
