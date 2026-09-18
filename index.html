@@ -721,15 +721,16 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.38 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.0.0 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
         설치 없이 HTML 파일 하나로 모든 기능이 동작합니다.<br><br>
         · 도형·텍스트·이미지 객체 편집<br>
-        · Boxed Text · 오선 · 영역선택<br>
+        · 레이어 · 오선 · 마디줄 · 음악기호<br>
+        · Shuffle 1/2 · 붙임줄 · 영역선택<br>
         · EPP 프로젝트 저장 · PDF 출력<br>
-        · 라이트/다크 테마
+        · 모바일 터치 편집 · 라이트/다크 테마
       </div>
       <div style="font-size:11px;color:var(--muted)">
         © 2025 · 제작 문의: <a href="mailto:limfrog75@gmail.com" style="color:var(--accent);text-decoration:none">limfrog75@gmail.com</a>
@@ -743,59 +744,128 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
-  <div class="modal" style="width:700px;max-width:95vw">
-    <div class="modal-head">📖 사용설명서
+  <div class="modal" style="width:760px;max-width:96vw">
+    <div class="modal-head">📖 Easy Paint Pad 2.0.0 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
-    <div class="modal-body" style="padding:0;max-height:70vh;overflow-y:auto;gap:0">
-      <div style="padding:16px 20px;font-size:12px;line-height:1.9;color:var(--text)">
+    <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
+      <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
-        <h3 style="margin:0 0 8px;font-size:14px;color:var(--accent)">🗂 파일 관리</h3>
+        <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
+          <b style="color:var(--text)">Easy Paint Pad 2.0.0</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          이미지·텍스트·도형·오선·음악기호를 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
+        </div>
+
+        <h3 style="margin:0 0 8px;font-size:14px;color:var(--accent)">🗂 1. 파일 · 캔버스</h3>
         <table style="width:100%;border-collapse:collapse;font-size:11px">
-          <tr><td style="padding:3px 8px;color:var(--muted);width:140px">새 파일</td><td>빈 캔버스 시작 (미저장 시 저장 확인)</td><td style="color:var(--muted);text-align:right">Ctrl+N</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted);width:145px">새 파일</td><td>빈 캔버스로 새 작업 시작</td><td style="color:var(--muted);text-align:right">Ctrl+N</td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">열기</td><td>이미지 또는 EPP 프로젝트 열기</td><td style="color:var(--muted);text-align:right">Ctrl+O</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">저장</td><td>EPP 프로젝트로 저장(기본)</td><td style="color:var(--muted);text-align:right">Ctrl+S</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">다른이름저장</td><td>형식 선택 후 저장</td><td style="color:var(--muted);text-align:right">Ctrl+Shift+S</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">EPP 저장</td><td>객체 편집 정보 유지 프로젝트 저장</td><td style="color:var(--muted);text-align:right">Ctrl+E</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">PNG 저장</td><td>그림을 PNG 이미지로 내보내기</td><td style="color:var(--muted);text-align:right">툴바</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">인쇄</td><td>브라우저 인쇄 대화상자</td><td style="color:var(--muted);text-align:right">Ctrl+P</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">저장</td><td>현재 작업을 EPP 프로젝트로 저장</td><td style="color:var(--muted);text-align:right">Ctrl+S</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">다른 이름으로 저장</td><td>PNG·JPEG·WebP 등 형식을 선택하여 저장</td><td style="color:var(--muted);text-align:right">Ctrl+Shift+S</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">EPP 저장</td><td>객체·레이어·스타일을 유지하는 편집용 프로젝트 저장</td><td style="color:var(--muted);text-align:right">Ctrl+E</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">PDF 저장 / 인쇄</td><td>A4 PDF 저장 또는 브라우저 인쇄</td><td style="color:var(--muted);text-align:right">Ctrl+P</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">캔버스 크기</td><td>파일 탭의 너비·높이를 지정하고 [적용]</td><td></td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">문서화</td><td>사진·스캔 이미지의 음영을 줄여 문서처럼 보정</td><td></td></tr>
         </table>
 
-        <h3 style="margin:14px 0 8px;font-size:14px;color:var(--accent)">🖊 도구</h3>
+        <h3 style="margin:15px 0 8px;font-size:14px;color:var(--accent)">🖊 2. 기본 도구</h3>
         <table style="width:100%;border-collapse:collapse;font-size:11px">
-          <tr><td style="padding:3px 8px;color:var(--muted);width:140px">영역 선택</td><td>픽셀 단위 선택·이동·복사</td><td style="color:var(--muted);text-align:right">R</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">객체 선택</td><td>객체 선택·이동·리사이즈</td><td style="color:var(--muted);text-align:right">V</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">연필</td><td>가는 자유 곡선</td><td style="color:var(--muted);text-align:right">P</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">브러시</td><td>두꺼운 자유 곡선</td><td style="color:var(--muted);text-align:right">B</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted);width:145px">영역 선택</td><td>캔버스의 픽셀 영역을 선택·이동·복사·삭제</td><td style="color:var(--muted);text-align:right">R</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">객체 선택</td><td>텍스트·도형·이미지 등 객체 선택, 이동, 크기 조절</td><td style="color:var(--muted);text-align:right">V</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">연필 / 브러시</td><td>자유 곡선 그리기. 두께와 전경색 적용</td><td style="color:var(--muted);text-align:right">P / B</td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">지우개</td><td>픽셀 지우기</td><td style="color:var(--muted);text-align:right">E</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">채우기</td><td>영역을 전경색으로 채움</td><td style="color:var(--muted);text-align:right">F</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">스포이드</td><td>픽셀 색상 추출</td><td style="color:var(--muted);text-align:right">K</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">텍스트</td><td>캔버스에 텍스트 입력</td><td style="color:var(--muted);text-align:right">T</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">채우기</td><td>연결된 영역을 전경색으로 채우기</td><td style="color:var(--muted);text-align:right">F</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">스포이드</td><td>캔버스의 색을 전경색으로 추출</td><td style="color:var(--muted);text-align:right">K</td></tr>
         </table>
 
-        <h3 style="margin:14px 0 8px;font-size:14px;color:var(--accent)">✏️ 편집</h3>
+        <h3 style="margin:15px 0 8px;font-size:14px;color:var(--accent)">📐 3. 도형 · 오선 · 마디줄</h3>
         <table style="width:100%;border-collapse:collapse;font-size:11px">
-          <tr><td style="padding:3px 8px;color:var(--muted);width:140px">실행 취소</td><td>이전 상태로 되돌리기</td><td style="color:var(--muted);text-align:right">Ctrl+Z</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">다시 실행</td><td>취소한 작업 다시 실행</td><td style="color:var(--muted);text-align:right">Ctrl+Y</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">복사</td><td>선택 객체/영역 복사</td><td style="color:var(--muted);text-align:right">Ctrl+C</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">잘라내기</td><td>선택 객체/영역 잘라내기</td><td style="color:var(--muted);text-align:right">Ctrl+X</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">붙여넣기</td><td>복사한 객체/이미지 붙이기</td><td style="color:var(--muted);text-align:right">Ctrl+V</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">복제</td><td>선택 객체 그 자리에 복제</td><td style="color:var(--muted);text-align:right">Ctrl+D</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">전체 선택</td><td>모든 객체 선택</td><td style="color:var(--muted);text-align:right">Ctrl+A</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">삭제</td><td>선택 객체/영역 삭제</td><td style="color:var(--muted);text-align:right">Delete</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">위 레이어</td><td>선택 객체를 위로</td><td style="color:var(--muted);text-align:right">Ctrl+]</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">아래 레이어</td><td>선택 객체를 아래로</td><td style="color:var(--muted);text-align:right">Ctrl+[</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted);width:145px">직선</td><td>자유 각도 또는 수평·수직·45°·135°·Shift 고정으로 그리기</td><td></td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">사각형 / 타원</td><td>테두리 두께, 전경색, 채우기(없음·전경·배경)를 적용</td><td></td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">화살표</td><td>직선과 같은 각도 옵션으로 화살표 그리기</td><td></td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">오선</td><td>드래그한 방향을 기준으로 5개의 평행한 오선 생성</td><td></td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)"><b>마디줄</b></td><td><b>직선 또는 오선 도구를 선택하면 표시됩니다.</b> 체크하면 길이의 1/4·2/4·3/4·끝점에 진행 방향과 직각인 4개의 선을 자동 생성합니다.</td><td></td></tr>
+        </table>
+        <div style="margin:7px 8px 0;padding:8px 10px;border-left:3px solid var(--accent);background:var(--ribbon);font-size:11px;color:var(--muted)">
+          오선의 마디줄은 오선 전체 높이를 가로지르고, 직선의 마디줄은 선과 직각인 짧은 표시선으로 생성됩니다.
+        </div>
+
+        <h3 style="margin:15px 0 8px;font-size:14px;color:var(--accent)">🎼 4. 음악 도형</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <tr><td style="padding:3px 8px;color:var(--muted);width:145px">도형 도구</td><td>높은음자리표·낮은음자리표·가온음자리표, 조표, 쉼표, 음표, 반복기호, 세로줄 등을 삽입</td><td style="color:var(--muted);text-align:right">M</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">붙임줄 위 / 아래</td><td>위쪽·아래쪽 방향의 붙임줄을 독립 객체로 삽입</td><td></td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">Shuffle 1</td><td>8분음표 2개 = 가운데 음이 생략된 셋잇단음표 형태의 셔플 리듬 기호</td><td></td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">Shuffle 2</td><td>점8분음표 + 16분음표 = 가운데 음이 생략된 셋잇단음표 형태의 셔플 리듬 기호</td><td></td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">크기</td><td>삽입 시 현재 텍스트 크기를 기준으로 생성되고, 이후 객체 핸들로 다시 조절 가능</td><td></td></tr>
         </table>
 
-        <h3 style="margin:14px 0 8px;font-size:14px;color:var(--accent)">💡 주요 팁</h3>
-        <ul style="margin:0;padding-left:16px;font-size:11px;color:var(--muted);line-height:2">
-          <li>텍스트 더블클릭 → 편집 모드 진입</li>
-          <li>영역선택 후 Ctrl+드래그 → 복사 이동 (원본 유지)</li>
-          <li>드래그앤드롭: 일반=객체삽입, Shift=새 파일로 열기</li>
-          <li>외부 이미지 Ctrl+V → 캔버스에 객체로 삽입</li>
-          <li>EPP 저장 → 객체·스타일 모두 보존, 나중에 다시 편집 가능</li>
-          <li>캔버스 핸들(회색 원) ↔ 객체 핸들(파란 사각형) 구분</li>
+        <h3 style="margin:15px 0 8px;font-size:14px;color:var(--accent)">🔤 5. 텍스트</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <tr><td style="padding:3px 8px;color:var(--muted);width:145px">텍스트 입력</td><td>텍스트 도구 선택 후 캔버스를 클릭하여 입력</td><td style="color:var(--muted);text-align:right">T</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">글꼴 / 크기</td><td>한글·영문·음악 글꼴과 글자 크기 설정</td><td></td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">스타일</td><td>굵게·기울임·밑줄 적용</td><td></td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">박스 텍스트</td><td>텍스트 주위에 박스 표시. 패딩·모서리 반경 조절 가능</td><td></td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">다시 편집</td><td>기존 텍스트를 더블클릭하여 내용 수정</td><td></td></tr>
+        </table>
+
+        <h3 style="margin:15px 0 8px;font-size:14px;color:var(--accent)">🧲 6. 객체 선택 · 이동 · 크기 조절</h3>
+        <ul style="margin:0;padding-left:20px;font-size:11px;color:var(--muted);line-height:1.9">
+          <li>객체 선택 도구에서 객체를 클릭하면 선택 테두리와 파란 크기 조절 핸들이 표시됩니다.</li>
+          <li>파란 핸들을 드래그하면 객체 크기를 조절할 수 있습니다. <b style="color:var(--text)">모바일에서도 손가락으로 핸들을 직접 드래그할 수 있습니다.</b></li>
+          <li>여러 객체를 선택한 상태에서 드래그하면 함께 이동합니다.</li>
+          <li>선택 객체는 방향키로 1px 이동, Shift+방향키로 10px 이동합니다. 다중 선택도 함께 이동합니다.</li>
+          <li>잠긴 객체 또는 잠긴 레이어의 객체는 편집할 수 없습니다.</li>
         </ul>
+
+        <h3 style="margin:15px 0 8px;font-size:14px;color:var(--accent)">▱ 7. 레이어 · 객체 목록</h3>
+        <ul style="margin:0;padding-left:20px;font-size:11px;color:var(--muted);line-height:1.9">
+          <li>오른쪽 레이어 패널의 <b style="color:var(--text)">＋</b> 버튼으로 새 레이어를 추가합니다.</li>
+          <li>레이어 ↑ / ↓ 버튼으로 레이어 순서를 변경합니다.</li>
+          <li>레이어별로 표시/숨김과 잠금 상태를 설정할 수 있습니다.</li>
+          <li>레이어를 잠그면 해당 레이어의 객체는 캔버스에서 선택하거나 수정할 수 없습니다.</li>
+          <li>현재 레이어 아래에는 그 레이어에 속한 객체 목록이 표시됩니다.</li>
+          <li>선택 객체는 다른 레이어로 이동할 수 있습니다. 잠긴 대상 레이어에는 이동할 수 없습니다.</li>
+          <li>개별 객체에도 잠금을 설정하여 위치나 크기 변경을 막을 수 있습니다.</li>
+        </ul>
+
+        <h3 style="margin:15px 0 8px;font-size:14px;color:var(--accent)">🎨 8. 색상 · 두께 · 투명도</h3>
+        <ul style="margin:0;padding-left:20px;font-size:11px;color:var(--muted);line-height:1.9">
+          <li>전경색은 선·글자·도형의 기본 색, 배경색은 채우기 등에 사용됩니다.</li>
+          <li>팔레트와 사용자 지정 색상을 사용할 수 있으며 전경/배경 투명도도 별도로 조절합니다.</li>
+          <li>선·연필·브러시·도형의 두께는 빠른 두께 버튼 또는 ± 컨트롤로 조절합니다.</li>
+          <li>모바일에서는 전경색/배경색 버튼을 눌러 터치용 색상 선택창을 엽니다.</li>
+        </ul>
+
+        <h3 style="margin:15px 0 8px;font-size:14px;color:var(--accent)">🔍 9. 보기 · 모바일</h3>
+        <ul style="margin:0;padding-left:20px;font-size:11px;color:var(--muted);line-height:1.9">
+          <li>보기 탭에서 확대·축소, 100%, 화면 맞추기를 사용할 수 있습니다.</li>
+          <li>배율 슬라이더로 세밀하게 확대/축소할 수 있습니다.</li>
+          <li>라이트/다크 테마를 지원합니다.</li>
+          <li>모바일에서는 리본 영역을 가로로 스크롤하여 숨겨진 도구를 사용할 수 있습니다.</li>
+        </ul>
+
+        <h3 style="margin:15px 0 8px;font-size:14px;color:var(--accent)">✏️ 10. 편집 단축키</h3>
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <tr><td style="padding:3px 8px;color:var(--muted);width:145px">실행 취소 / 다시 실행</td><td>이전 상태 또는 취소한 상태로 이동</td><td style="color:var(--muted);text-align:right">Ctrl+Z / Ctrl+Y</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">복사 / 잘라내기 / 붙여넣기</td><td>객체 또는 영역 편집</td><td style="color:var(--muted);text-align:right">Ctrl+C / X / V</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">복제</td><td>선택 객체를 같은 위치에 복제</td><td style="color:var(--muted);text-align:right">Ctrl+D</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">전체 선택</td><td>편집 가능한 객체 전체 선택</td><td style="color:var(--muted);text-align:right">Ctrl+A</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">삭제</td><td>선택 객체 또는 영역 삭제</td><td style="color:var(--muted);text-align:right">Delete</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">객체 순서</td><td>현재 레이어 안에서 선택 객체를 위/아래로 이동</td><td style="color:var(--muted);text-align:right">Ctrl+] / Ctrl+[</td></tr>
+        </table>
+
+        <h3 style="margin:15px 0 8px;font-size:14px;color:var(--accent)">💡 11. 알아두면 좋은 기능</h3>
+        <ul style="margin:0;padding-left:20px;font-size:11px;color:var(--muted);line-height:1.9">
+          <li>이미지 파일을 캔버스로 드래그하면 객체로 삽입됩니다. Shift+드롭은 새 파일로 엽니다.</li>
+          <li>외부에서 복사한 이미지는 Ctrl+V로 객체 삽입할 수 있습니다.</li>
+          <li>EPP로 저장하면 레이어·객체·텍스트·스타일 정보를 보존하여 나중에 다시 편집할 수 있습니다.</li>
+          <li>회색 원형 핸들은 캔버스 크기 조절, 파란 사각형 핸들은 선택 객체 크기 조절입니다.</li>
+          <li>작업이 복잡할수록 레이어를 나누고 레이어/객체 잠금을 사용하면 실수로 움직이는 것을 줄일 수 있습니다.</li>
+        </ul>
+
+        <div style="margin-top:16px;padding-top:10px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);text-align:center">
+          Easy Paint Pad 2.0.0 · HTML5 Canvas 기반
+        </div>
       </div>
     </div>
     <div class="modal-foot">
