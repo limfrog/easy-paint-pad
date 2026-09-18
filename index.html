@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.32 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 1.6.34 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -1290,43 +1290,144 @@ function resyncOidSeq(){
   }
   if(maxId>=oidSeq) oidSeq=maxId;
 }
+
 const MUSIC_SYMBOLS=[
-  {key:'trebleClef',label:'높은음자리표',text:'𝄞',fontFamily:"'Noto Music',serif"},
-  {key:'bassClef',label:'낮은음자리표',text:'𝄢',fontFamily:"'Noto Music',serif"},
-  {key:'altoClef',label:'가온음자리표',text:'𝄡',fontFamily:"'Noto Music',serif"},
-  {key:'flat',label:'내림표 (Flat)',text:'♭',fontFamily:"'Noto Music',serif"},
-  {key:'sharp',label:'올림표 (Sharp)',text:'♯',fontFamily:"'Noto Music',serif"},
-  {key:'natural',label:'제자리표',text:'♮',fontFamily:"'Noto Music',serif"},
-  {key:'segno',label:'세뇨',text:'𝄋',fontFamily:"'Noto Music',serif"},
-  {key:'coda',label:'코다',text:'𝄌',fontFamily:"'Noto Music',serif"},
-  {key:'fermata',label:'페르마타',text:'𝄐',fontFamily:"'Noto Music',serif"},
-  {key:'quarterRest',label:'4분쉼표',text:'𝄽',fontFamily:"'Noto Music',serif"},
-  {key:'eighthRest',label:'8분쉼표',text:'𝄾',fontFamily:"'Noto Music',serif"},
-  {key:'sixteenthRest',label:'16분쉼표',text:'𝄿',fontFamily:"'Noto Music',serif"},
-  {key:'quarterNote',label:'4분음표',text:'♩',fontFamily:"'Noto Music',serif"},
-  {key:'eighthNote',label:'8분음표',text:'♪',fontFamily:"'Noto Music',serif"},
-  {key:'sixteenthNote',label:'16분음표',text:'𝅘𝅥𝅯',fontFamily:"'Noto Music',serif"},
-  {key:'beginRepeat',label:'도돌이표 시작',text:'𝄆',fontFamily:"'Noto Music',serif"},
-  {key:'endRepeat',label:'도돌이표 끝',text:'𝄇',fontFamily:"'Noto Music',serif"},
-  {key:'doubleBar',label:'겹세로줄',text:'𝄁',fontFamily:"'Noto Music',serif"},
-  {key:'finalBar',label:'Final 겹세로줄',text:'𝄂',fontFamily:"'Noto Music',serif"},
-  {key:'singleBar',label:'세로줄',text:'𝄀',fontFamily:"'Noto Music',serif"}
+  {key:'trebleClef',label:'높은음자리표',text:'𝄞',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'bassClef',label:'낮은음자리표',text:'𝄢',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'altoClef',label:'가온음자리표',text:'𝄡',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'flat',label:'내림표 (Flat)',text:'♭',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'sharp',label:'올림표 (Sharp)',text:'♯',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'natural',label:'제자리표',text:'♮',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'segno',label:'세뇨',text:'𝄋',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'coda',label:'코다',text:'𝄌',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'fermata',label:'페르마타',text:'𝄐',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'quarterRest',label:'4분쉼표',text:'𝄽',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'eighthRest',label:'8분쉼표',text:'𝄾',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'sixteenthRest',label:'16분쉼표',text:'𝄿',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'quarterNote',label:'4분음표',text:'♩',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'eighthNote',label:'8분음표',text:'♪',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'sixteenthNote',label:'16분음표',text:'𝅘𝅥𝅯',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'beginRepeat',label:'도돌이표 시작',text:'𝄆',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'endRepeat',label:'도돌이표 끝',text:'𝄇',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'doubleBar',label:'겹세로줄',text:'𝄁',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'finalBar',label:'Final 겹세로줄',text:'𝄂',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'singleBar',label:'세로줄',text:'𝄀',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'tieUp',label:'붙임줄 위',kind:'svg'},
+  {key:'tieDown',label:'붙임줄 아래',kind:'svg'},
+  {key:'tupletFeel1',label:'Shuffle 1',kind:'svg'},
+  {key:'tupletFeel2',label:'Shuffle 2',kind:'svg'}
 ];
 function getMusicSymbolDef(key){
   return MUSIC_SYMBOLS.find(s=>s.key===key)||MUSIC_SYMBOLS[0];
 }
+function hexToRgbaCss(hex,a=1){
+  const h=String(hex||'#111111').replace('#','').trim();
+  const norm=h.length===3?h.split('').map(ch=>ch+ch).join(''):h.padEnd(6,'0').slice(0,6);
+  const n=parseInt(norm,16);
+  const r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+  return `rgba(${r},${g},${b},${Math.max(0,Math.min(1,Number(a)||0))})`;
+}
+function symbolColorCss(){
+  return hexToRgbaCss(fgH||'#111111', Number.isFinite(fgA)?fgA:1);
+}
+function escXml(s){
+  return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function svgDataUrl(svg){
+  return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+}
+function makeTieSvg(direction,size,color){
+  const w=Math.max(64,Math.round(size*4.2));
+  const h=Math.max(20,Math.round(size*1.25));
+  const stroke=Math.max(2,Math.round(size*0.12));
+  const y1=direction==='up'?h-stroke*1.2:stroke*1.2;
+  const cy=direction==='up'?stroke*0.9:h-stroke*0.9;
+  const y2=direction==='up'?h-stroke*2.4:stroke*2.4;
+  const cy2=direction==='up'?stroke*2.2:h-stroke*2.2;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <path d="M ${stroke} ${y1} Q ${w/2} ${cy} ${w-stroke} ${y1}" fill="none" stroke="${escXml(color)}" stroke-width="${stroke}" stroke-linecap="round"/>
+    <path d="M ${stroke} ${y2} Q ${w/2} ${cy2} ${w-stroke} ${y2}" fill="none" stroke="${escXml(color)}" stroke-width="${Math.max(1,stroke*0.72)}" stroke-linecap="round" opacity="0.95"/>
+  </svg>`;
+  return {dataUrl:svgDataUrl(svg),w,h};
+}
+function noteHead(cx,cy,rx,ry,rot=-24){
+  return `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" transform="rotate(${rot} ${cx} ${cy})"/>`;
+}
+
+function makeTupletFeelSvg(kind,size,color){
+  const dotted=kind==='tupletFeel2';
+  // 두 셔플 기호가 같은 크기로 보이도록 동일한 캔버스 크기 안에 맞춰 그린다.
+  const w=Math.max(220,Math.round(size*9.2));
+  const h=Math.max(64,Math.round(size*2.7));
+  const sw=Math.max(2.2,size*0.12);
+  const beamW=sw*2.0;
+  const rx=Math.max(6.5,size*0.23), ry=Math.max(4.8,size*0.17);
+  const leftX1=w*0.12, leftX2=w*0.30;
+  const rightX1=w*0.69, rightX2=w*0.87;
+  const noteY=h*0.76;
+  const beamY=h*0.26;
+  const stemTop1=h*0.34;
+  const stemTop2=h*0.40;
+  const dotCx=leftX1+rx*2.0;
+  const dotCy=noteY-rx*1.28;
+  const eqX=w*0.50;
+  const eqGap=Math.max(7,size*0.38);
+  const eqHalf=Math.max(8,size*0.28);
+  const eqY1=h*0.47, eqY2=h*0.47+eqGap;
+  const bracketY=h*0.12, bracketStem=h*0.16;
+  const bracketLeft=rightX1-rx*0.9, bracketRight=rightX2+rx*0.95;
+  const numeralX=(bracketLeft+bracketRight)/2;
+  const numeralY=bracketY+sw*0.65;
+  const parenStartX=bracketRight+sw*1.1;
+  const parenCtrlX=parenStartX+Math.max(7,size*0.22);
+  const parenTopY=bracketY+bracketStem*0.10;
+  const parenBottomY=h*0.80;
+  const parenMidY=h*0.49;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <g shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
+      <g fill="${escXml(color)}" stroke="${escXml(color)}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">
+        ${noteHead(leftX1,noteY,rx,ry)}
+        ${noteHead(leftX2,noteY,rx,ry)}
+        <line x1="${leftX1+rx*0.72}" y1="${noteY-ry*0.55}" x2="${leftX1+rx*0.72}" y2="${beamY}"/>
+        <line x1="${leftX2+rx*0.72}" y1="${noteY-ry*0.55}" x2="${leftX2+rx*0.72}" y2="${beamY}"/>
+        <line x1="${leftX1+rx*0.72}" y1="${beamY}" x2="${leftX2+rx*0.72}" y2="${beamY}" stroke-width="${beamW}"/>
+        ${dotted?`<circle cx="${dotCx}" cy="${dotCy}" r="${Math.max(1.8,sw*0.82)}"/>`:''}
+        <line x1="${eqX-eqHalf}" y1="${eqY1}" x2="${eqX+eqHalf}" y2="${eqY1}"/>
+        <line x1="${eqX-eqHalf}" y1="${eqY2}" x2="${eqX+eqHalf}" y2="${eqY2}"/>
+        ${noteHead(rightX1,noteY,rx,ry)}
+        ${noteHead(rightX2,noteY,rx,ry)}
+        <line x1="${rightX1+rx*0.72}" y1="${noteY-ry*0.55}" x2="${rightX1+rx*0.72}" y2="${stemTop1}"/>
+        <line x1="${rightX2+rx*0.72}" y1="${noteY-ry*0.55}" x2="${rightX2+rx*0.72}" y2="${stemTop2}"/>
+        <line x1="${bracketLeft}" y1="${bracketY}" x2="${bracketRight}" y2="${bracketY}"/>
+        <line x1="${bracketLeft}" y1="${bracketY}" x2="${bracketLeft}" y2="${bracketY+bracketStem}"/>
+        <line x1="${bracketRight}" y1="${bracketY}" x2="${bracketRight}" y2="${bracketY+bracketStem}"/>
+        <path d="M ${parenStartX} ${parenTopY} Q ${parenCtrlX} ${parenMidY} ${parenStartX} ${parenBottomY}" fill="none"/>
+      </g>
+      <text x="${numeralX}" y="${numeralY}" text-anchor="middle" dominant-baseline="hanging" font-family="Georgia, 'Times New Roman', serif" font-size="${Math.max(14,size*0.78)}" fill="${escXml(color)}">3</text>
+    </g>
+  </svg>`;
+  return {dataUrl:svgDataUrl(svg),w,h};
+}
+function createMusicSymbolAsset(def,size){
+  const color=symbolColorCss();
+  if(def.key==='tieUp') return makeTieSvg('up',size,color);
+  if(def.key==='tieDown') return makeTieSvg('down',size,color);
+  if(def.key==='tupletFeel1' || def.key==='tupletFeel2') return makeTupletFeelSvg(def.key,size,color);
+  return null;
+}
+
 function getObjTypeLabel(o){
   if(!o) return '';
-  if(o.type==='text'&&o.musicSymbol) return '도형';
+  if(o?.musicSymbol) return '도형';
   return {stroke:'획',shape:'도형',text:'텍스트',image:'이미지'}[o.type]||'객체';
 }
 function getObjIcon(o){
-  if(o?.type==='text'&&o.musicSymbol) return '♪';
+  if(o?.musicSymbol) return '♪';
   return {stroke:'✏️',shape:'⬡',text:'T',image:'🖼️'}[o?.type]||'•';
 }
 function getObjLabel(o){
   if(!o) return '';
-  if(o.type==='text'&&o.musicSymbol){
+  if(o?.musicSymbol){
     const label=o.symbolLabel||'도형';
     return `${label} ${o.text||''}`.trim();
   }
@@ -1362,14 +1463,21 @@ function ensureMusicFontReady(){
     refreshList();
   }).catch(()=>{});
 }
+
 function onMusicSymbolSelectChange(){
   const sel=document.getElementById('musicSymbolSelect');
   const input=document.getElementById('musicSymbolInput');
   if(!sel||!input) return;
   const def=getMusicSymbolDef(sel.value);
-  input.value=def.text;
-  input.style.fontFamily=def.fontFamily||"'Noto Music',serif";
-  input.style.fontSize='13px';
+  const isSvg=def.kind==='svg';
+  input.disabled=isSvg;
+  input.value=isSvg?(def.previewText||def.label):(def.text||'');
+  input.placeholder=isSvg?'직접입력 미지원':'도형 직접 입력';
+  input.title=isSvg?'이 도형은 직접입력 대신 중앙삽입/캔버스 클릭으로 넣습니다.':'';
+  input.style.fontFamily=isSvg?"system-ui, sans-serif":(def.fontFamily||"'Noto Music',serif");
+  input.style.fontSize=isSvg?'11px':'13px';
+  input.style.lineHeight='22px';
+  input.style.opacity=isSvg?'0.72':'1';
   updateMusicSymbolPreview();
 }
 function updateMusicSymbolPreview(){
@@ -1377,23 +1485,38 @@ function updateMusicSymbolPreview(){
   const input=document.getElementById('musicSymbolInput');
   if(!sel||!input) return;
   const def=getMusicSymbolDef(sel.value);
-  input.style.fontFamily=def.fontFamily||"'Noto Music',serif";
-  // 직접입력 칸 안에서 기호 전체가 보이도록 고정된 작은 크기로 표시
-  input.style.fontSize='13px';
+  const isSvg=def.kind==='svg';
+  input.style.fontFamily=isSvg?"system-ui, sans-serif":(def.fontFamily||"'Noto Music',serif");
+  input.style.fontSize=isSvg?'11px':'13px';
   input.style.lineHeight='22px';
+  input.style.opacity=isSvg?'0.72':'1';
 }
 function insertMusicSymbolAt(x,y){
   const sel=document.getElementById('musicSymbolSelect');
   const input=document.getElementById('musicSymbolInput');
   if(!sel||!input) return;
   const def=getMusicSymbolDef(sel.value);
+  const currentTextSize=Number(fSz)||Number(document.getElementById('fontSizeInput')?.value)||18;
+  const symbolSize=Math.max(6,currentTextSize);
+  if(def.kind==='svg'){
+    const asset=createMusicSymbolAsset(def,symbolSize);
+    if(!asset||!asset.dataUrl) return;
+    const img=new Image();
+    img.onload=()=>{
+      const newObj={id:mkId(),type:'image',img,x,y,w:asset.w,h:asset.h,alpha:1,layerId:activeLayerId,musicSymbol:true,symbolKey:def.key,symbolLabel:def.label};
+      objs.push(newObj);
+      selId=newObj.id; selIds=[newObj.id];
+      saveH();
+      drawSel();refreshList();renderAll();
+      document.getElementById('statusObj').textContent=`선택: 도형 #${newObj.id}`;
+    };
+    img.src=asset.dataUrl;
+    return;
+  }
   const txt=(input.value||def.text||'').trim();
   if(!txt) return;
   const fontFamily=def.fontFamily||"'Noto Music',serif";
-  // 도형은 별도 기본 크기를 강제하지 않고, 현재 텍스트 도구의 폰트 크기를 그대로 사용한다.
-  // 도형 삽입 때문에 사용자가 선택해 둔 텍스트 폰트/크기 상태도 변경하지 않는다.
-  const currentTextSize=Number(fSz)||Number(document.getElementById('fontSizeInput')?.value)||18;
-  const fontSize=Math.max(6,currentTextSize);
+  const fontSize=symbolSize;
   const newObj={
     id:mkId(),type:'text',x,y,text:txt,layerId:activeLayerId,
     fontFamily,fontSize,bold:false,italic:false,underline:false,
@@ -1409,6 +1532,7 @@ function insertMusicSymbolAt(x,y){
 function insertMusicSymbolAtCenter(){
   insertMusicSymbolAt(Math.round(CW/2),Math.round(CH/2));
 }
+
 
 function snapObjs(){
   ensureLayerState();
@@ -2720,7 +2844,10 @@ function copySelected(){
   const o=objs.find(x=>x.id===selId);
   if(o){
     clip=JSON.parse(JSON.stringify(o));
-    if(clip.type==='image')delete clip.img;
+    if(clip.type==='image'){
+      if(o.img?.src) clip._src=o.img.src;
+      delete clip.img;
+    }
     clip._copiedAt=Date.now(); // 복사 시각 기록
     pixelClip=null;
     lastCopyType='object';
@@ -2735,6 +2862,12 @@ function pasteClipboard(){
   if(c.type==='stroke')c.points=c.points.map(p=>({x:p.x+20,y:p.y+20}));
   else if(c.type==='shape'){c.x1+=20;c.y1+=20;c.x2+=20;c.y2+=20;}
   else{c.x+=20;c.y+=20;}
+  if(c.type==='image'&&c._src){
+    const img=new Image();
+    img.onload=()=>{ c.img=img; delete c._src; objs.push(c); saveH(); selObj(c.id); renderAll(); refreshList(); };
+    img.src=c._src;
+    return;
+  }
   objs.push(c);saveH();selObj(c.id);
 }
 function duplicateSelected(){
@@ -4253,13 +4386,22 @@ document.addEventListener('keydown',e=>{
     if(map[e.key])setTool(map[e.key]);
     if(e.key==='+'||e.key==='=')changeZoom(0.25);
     if(e.key==='-')changeZoom(-0.25);
-    // 단일 객체 화살표 이동
-    if(selId&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
+    // 선택 객체 화살표 이동 (다중 선택 포함)
+    if((selIds.length||selId)&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
       e.preventDefault();
-      const o=objs.find(x=>x.id===selId);
-      if(o&&!o.locked){const d=e.shiftKey?10:1,dx=e.key==='ArrowLeft'?-d:e.key==='ArrowRight'?d:0,dy=e.key==='ArrowUp'?-d:e.key==='ArrowDown'?d:0;moveO(o,dx,dy);renderAll();}
+      const d=e.shiftKey?10:1,dx=e.key==='ArrowLeft'?-d:e.key==='ArrowRight'?d:0,dy=e.key==='ArrowUp'?-d:e.key==='ArrowDown'?d:0;
+      const ids=selIds.length?selIds:(selId?[selId]:[]);
+      let moved=false;
+      ids.forEach(id=>{
+        const o=objs.find(x=>x.id===id);
+        if(isObjEditable(o)){
+          moveO(o,dx,dy);
+          moved=true;
+        }
+      });
+      if(moved) renderAll();
       clearTimeout(window._arrowSaveT);
-      window._arrowSaveT=setTimeout(saveH,400);
+      window._arrowSaveT=setTimeout(()=>{ if(moved) saveH(); },400);
     }
     // 영역 선택 화살표 이동 (픽셀 snap)
     if(marqueSnap&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
