@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.0.1 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.0.2 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.0.1 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.0.2 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.0.1</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.0.2</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -791,7 +791,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 
         <h3 style="margin:15px 0 8px;font-size:14px;color:var(--accent)">🎼 4. 도형</h3>
         <table style="width:100%;border-collapse:collapse;font-size:11px">
-          <tr><td style="padding:3px 8px;color:var(--muted);width:145px">도형 도구</td><td>높은음자리표·낮은음자리표·가온음자리표, 조표, 쉼표, 음표, 반복기호, 세로줄, 붙임줄 위·아래, Shuffle 표현기호 1·2 등을 삽입</td><td style="color:var(--muted);text-align:right">M</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted);width:145px">도형 도구</td><td>높은음자리표·낮은음자리표·가온음자리표, 조표, 온쉼표·2분쉼표·4분쉼표·8분쉼표·16분쉼표, 온음표·2분음표·4분음표·8분음표·16분음표, 반복기호, 세로줄, 붙임줄 위·아래, Shuffle 표현기호 1·2 등을 삽입</td><td style="color:var(--muted);text-align:right">M</td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">크기</td><td>삽입 시 현재 텍스트 크기를 기준으로 생성되고, 이후 객체 핸들로 다시 조절 가능</td><td></td></tr>
         </table>
 
@@ -1373,9 +1373,13 @@ const MUSIC_SYMBOLS=[
   {key:'segno',label:'세뇨',text:'𝄋',fontFamily:"'Noto Music',serif",kind:'text'},
   {key:'coda',label:'코다',text:'𝄌',fontFamily:"'Noto Music',serif",kind:'text'},
   {key:'fermata',label:'페르마타',text:'𝄐',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'wholeRest',label:'온쉼표',text:'𝄻',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'halfRest',label:'2분쉼표',text:'𝄼',fontFamily:"'Noto Music',serif",kind:'text'},
   {key:'quarterRest',label:'4분쉼표',text:'𝄽',fontFamily:"'Noto Music',serif",kind:'text'},
   {key:'eighthRest',label:'8분쉼표',text:'𝄾',fontFamily:"'Noto Music',serif",kind:'text'},
   {key:'sixteenthRest',label:'16분쉼표',text:'𝄿',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'wholeNote',label:'온음표',text:'𝅝',fontFamily:"'Noto Music',serif",kind:'text'},
+  {key:'halfNote',label:'2분음표',text:'𝅗𝅥',fontFamily:"'Noto Music',serif",kind:'text'},
   {key:'quarterNote',label:'4분음표',text:'♩',fontFamily:"'Noto Music',serif",kind:'text'},
   {key:'eighthNote',label:'8분음표',text:'♪',fontFamily:"'Noto Music',serif",kind:'text'},
   {key:'sixteenthNote',label:'16분음표',text:'𝅘𝅥𝅯',fontFamily:"'Noto Music',serif",kind:'text'},
