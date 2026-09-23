@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.6 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.7 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.1.6 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.1.7 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.1.6</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.1.7</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -1806,6 +1806,64 @@ function dText(c,o,hit){
   else { if(o.box){ const rad=o.boxRadius??0, bw=o.boxBorder??1, bx=tx-pad, by=ty-pad, bw2=maxW+pad*2, bh2=textH+pad*2; if(o.boxFill){ const bbg=o.boxBgColor||'#ffffff', bba=o.boxBgAlpha!=null?o.boxBgAlpha:1; c.fillStyle=h2r(bbg,bba); if(rad>0&&c.roundRect){c.beginPath();c.roundRect(bx,by,bw2,bh2,rad);c.fill();} else c.fillRect(bx,by,bw2,bh2); } if(bw>0){ c.strokeStyle=o.color; c.lineWidth=bw; if(rad>0&&c.roundRect){c.beginPath();c.roundRect(bx,by,bw2,bh2,rad);c.stroke();} else c.strokeRect(bx+0.5,by+0.5,bw2-1,bh2-1); } } c.fillStyle=o.color; if(o.fontSize<=20){ const scale=2, bounds=getBounds(o), bx=Math.floor(bounds.x)-2, by=Math.floor(bounds.y)-2, bw=Math.ceil(bounds.w)+4, bh=Math.ceil(bounds.h)+4; const oc2=document.createElement('canvas'); oc2.width=bw*scale; oc2.height=bh*scale; const ox2=oc2.getContext('2d'); ox2.scale(scale,scale); if('fontKerning' in ox2) ox2.fontKerning='normal'; ox2.font=fontStr; ox2.fillStyle=o.color; ox2.globalAlpha=o.alpha??1; lines.forEach((l,i)=>ox2.fillText(l, tx-bx, ty-by+o.fontSize+i*lineH)); if(o.underline)lines.forEach((l,i)=>{ const w=ox2.measureText(l).width; ox2.fillRect(tx-bx, Math.round(ty-by+o.fontSize+i*lineH+2), w, Math.max(1,o.fontSize*.07)); }); c.globalAlpha=o.alpha??1; c.drawImage(oc2, bx, by, bw, bh); } else { lines.forEach((l,i)=>c.fillText(l, tx, ty+o.fontSize+i*lineH)); if(o.underline)lines.forEach((l,i)=>{ const w=c.measureText(l).width; c.fillRect(tx, Math.round(ty+o.fontSize+i*lineH+2), w, Math.max(1,o.fontSize*.07)); }); } }
   c.restore();
 }
+// 이미지 축소 품질 개선: 원본은 그대로 보존하고, 렌더링할 때만 단계적 축소 소스를 사용한다.
+// WeakMap 캐시는 프로젝트 저장/복사 데이터에 포함되지 않으므로 원본 객체 모델을 오염시키지 않는다.
+const _imageMipCache=new WeakMap();
+function _imageSourceSize(src){
+  return {w:Math.max(0,src?.naturalWidth||src?.videoWidth||src?.width||0),h:Math.max(0,src?.naturalHeight||src?.videoHeight||src?.height||0)};
+}
+function getHQImageSource(src,targetW,targetH){
+  if(!src)return src;
+  const ss=_imageSourceSize(src), tw=Math.max(1,Math.round(Math.abs(targetW)||1)), th=Math.max(1,Math.round(Math.abs(targetH)||1));
+  if(!ss.w||!ss.h)return src;
+  // 확대/소폭 축소는 브라우저의 high-quality 보간을 그대로 사용한다.
+  if(tw>=ss.w*.72 || th>=ss.h*.72)return src;
+  let ent=_imageMipCache.get(src);
+  if(!ent||ent.w!==ss.w||ent.h!==ss.h){ent={w:ss.w,h:ss.h,levels:[{src,w:ss.w,h:ss.h}]};_imageMipCache.set(src,ent);}
+  let level=ent.levels[0], idx=0;
+  // 목표보다 작은 중간 이미지를 만들지 않도록 하면서 약 1/2씩 단계적으로 줄인다.
+  while(true){
+    const nw=Math.max(1,Math.floor(level.w/2)), nh=Math.max(1,Math.floor(level.h/2));
+    if(nw<tw||nh<th)break;
+    idx++;
+    if(!ent.levels[idx]){
+      const cv=document.createElement('canvas');cv.width=nw;cv.height=nh;
+      const cx=cv.getContext('2d');cx.imageSmoothingEnabled=true;cx.imageSmoothingQuality='high';
+      cx.drawImage(level.src,0,0,level.w,level.h,0,0,nw,nh);
+      ent.levels[idx]={src:cv,w:nw,h:nh};
+    }
+    level=ent.levels[idx];
+    if(level.w<=tw*2&&level.h<=th*2)break;
+  }
+  return level.src;
+}
+function drawImageHQ(c,src,x,y,w,h){
+  if(!src)return;
+  const prevSmooth=c.imageSmoothingEnabled, prevQuality=c.imageSmoothingQuality;
+  c.imageSmoothingEnabled=true;
+  try{c.imageSmoothingQuality='high';}catch(_e){}
+  const best=getHQImageSource(src,w,h);
+  c.drawImage(best,x,y,w,h);
+  c.imageSmoothingEnabled=prevSmooth;
+  try{c.imageSmoothingQuality=prevQuality;}catch(_e){}
+}
+function resampleCanvasHQ(srcCanvas,targetW,targetH){
+  const tw=Math.max(1,Math.round(targetW)), th=Math.max(1,Math.round(targetH));
+  let cur=srcCanvas, cw=srcCanvas.width, ch=srcCanvas.height;
+  // 매우 큰 축소는 한 번에 줄이지 않고 1/2 단계로 내려가 aliasing/세부 손실을 줄인다.
+  while(cw>tw*2||ch>th*2){
+    const nw=Math.max(tw,Math.floor(cw/2)), nh=Math.max(th,Math.floor(ch/2));
+    const cv=document.createElement('canvas');cv.width=nw;cv.height=nh;
+    const cx=cv.getContext('2d');cx.imageSmoothingEnabled=true;cx.imageSmoothingQuality='high';
+    cx.drawImage(cur,0,0,cw,ch,0,0,nw,nh);
+    cur=cv;cw=nw;ch=nh;
+  }
+  if(cw===tw&&ch===th)return cur;
+  const out=document.createElement('canvas');out.width=tw;out.height=th;
+  const ox=out.getContext('2d');ox.imageSmoothingEnabled=true;ox.imageSmoothingQuality='high';
+  ox.drawImage(cur,0,0,cw,ch,0,0,tw,th);
+  return out;
+}
 function dImage(c,o,hit){
   if(!o.img)return;
   c.save();c.globalAlpha=hit?1:(o.alpha??1);
@@ -1813,7 +1871,7 @@ function dImage(c,o,hit){
   const ix=Math.round(o.x), iy=Math.round(o.y);
   const iw=Math.round(o.w), ih=Math.round(o.h);
   if(hit){c.fillStyle=id2c(o.id);c.fillRect(ix,iy,iw,ih);}
-  else if(o.img.complete) c.drawImage(o.img,ix,iy,iw,ih);
+  else if(o.img.complete) drawImageHQ(c,o.img,ix,iy,iw,ih);
   c.restore();
 }
 
@@ -5275,12 +5333,8 @@ function executeResize(){
 
   // 현재 캔버스를 flatten → 새 크기로 스케일 → 객체를 단일 image로 교체
   const flat=flatten();
-  const tmp=document.createElement('canvas');
-  tmp.width=nW; tmp.height=nH;
-  const tc=tmp.getContext('2d');
-  tc.imageSmoothingEnabled=true;
-  tc.imageSmoothingQuality='high';
-  tc.drawImage(flat,0,0,nW,nH);
+  // 큰 폭의 축소는 단계적 고품질 resampling으로 처리한다.
+  const tmp=resampleCanvasHQ(flat,nW,nH);
 
   const img=new Image();
   img.onload=()=>{
