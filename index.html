@@ -323,9 +323,9 @@ select.sel:focus{border-color:var(--accent)}
 .zbtn{width:18px;height:18px;border:1px solid var(--border);border-radius:3px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px}
 .zbtn:hover{background:var(--hover)}
 .canvas-text-editor{position:absolute;background:transparent;border:1.5px dashed var(--accent);
-  outline:none;resize:both;z-index:50;min-width:80px;min-height:28px;
-  padding:2px 4px;line-height:1.35;white-space:pre;overflow:hidden;
-  box-sizing:border-box;}
+  outline:none;resize:both;z-index:50;min-width:80px;min-height:24px;
+  padding:2px 4px;line-height:1.35;white-space:pre;overflow-x:hidden;overflow-y:hidden;
+  word-break:normal;overflow-wrap:normal;box-sizing:border-box;}
 /* 리사이즈 핸들을 눈에 잘 보이게 */
 .canvas-text-editor::-webkit-resizer{
   background:var(--accent);border-radius:0 0 3px 0;opacity:0.7;}
@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.3 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.5 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.1.3 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.1.5 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.1.3</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.1.5</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -2649,7 +2649,69 @@ function applyEdSt(el){
   el.style.fontFamily=fFam;el.style.fontSize=fSz+'px';el.style.lineHeight=String(fLineHeight);
   el.style.fontWeight=fBold?'bold':'normal';el.style.fontStyle=fItal?'italic':'normal';
   el.style.textDecoration=fUnder?'underline':'none';el.style.color=fgH;
-  el.style.whiteSpace='pre-wrap';
+  // 캔버스 렌더러는 명시적 줄바꿈만 사용하므로 편집기도 자동 줄바꿈을 하지 않는다.
+  el.style.whiteSpace='pre';el.style.wordBreak='normal';el.style.overflowWrap='normal';
+  if(el?.isConnected) requestAnimationFrame(()=>syncTextEditorViewport(el));
+}
+function syncTextEditorVerticalAlignment(el){
+  if(!el||!el.isConnected)return;
+  const plain=String(el.innerText||el.textContent||'').replace(/\r/g,'');
+  const isSingleLine=!plain.includes('\n');
+  // 여러 줄은 사용자가 지정한 줄간격을 그대로 유지하고 기존 2px 여백을 사용한다.
+  if(!isSingleLine){
+    el.style.paddingTop='2px';el.style.paddingBottom='2px';
+    return;
+  }
+  const cs=getComputedStyle(el);
+  const fs=Math.max(6,parseFloat(cs.fontSize)||fSz||18);
+  const lhMul=Math.max(.7,Math.min(3,Number(fLineHeight)||1));
+  const linePx=fs*lhMul;
+  // border-box 내부(clientHeight)에서 한 줄 line box가 정확히 가운데 오도록
+  // 남는 높이를 위/아래에 동일하게 배분한다. 특히 18px 영문 한 글자에서
+  // 고정 min-height 때문에 아래에만 남던 여백을 제거한다.
+  const minH=Math.max(24,Math.ceil(linePx+6));
+  el.style.minHeight=minH+'px';
+  const innerH=Math.max(linePx,el.clientHeight||minH-3);
+  const vPad=Math.max(2,(innerH-linePx)/2);
+  el.style.paddingTop=vPad+'px';el.style.paddingBottom=vPad+'px';
+}
+function syncTextEditorViewport(el){
+  if(!el||!el.isConnected)return;
+  // 최종 Canvas 텍스트는 자동 줄바꿈을 하지 않는다. 편집 중에도 같은 규칙을 유지해
+  // 폭이 길어졌을 때 임의로 다음 줄로 내려가거나 세로 스크롤바가 생기지 않게 한다.
+  el.style.whiteSpace='pre';
+  el.style.wordBreak='normal';
+  el.style.overflowWrap='normal';
+  el.style.overflowY='hidden';
+
+  syncTextEditorVerticalAlignment(el);
+
+  const x=Number.isFinite(Number(el._x))?Number(el._x):(parseFloat(el.style.left)||0);
+  const y=Number.isFinite(Number(el._y))?Number(el._y):(parseFloat(el.style.top)||0);
+  const parentW=TO?.clientWidth||CW||0, parentH=TO?.clientHeight||CH||0;
+  const maxW=Math.max(80,(parentW||CW||800)-x-2);
+  const maxH=Math.max(24,(parentH||CH||600)-y-2);
+
+  // 한 줄/여러 줄 모두 가장 긴 '명시적 줄'에 맞춰 오른쪽으로만 확장한다.
+  // 캔버스 끝에 닿은 경우에만 가로 스크롤을 허용한다.
+  let curW=el.getBoundingClientRect().width||el.offsetWidth||80;
+  const needW=Math.ceil(el.scrollWidth+3);
+  if(needW>curW+1){
+    el.style.width=Math.min(maxW,needW)+'px';
+    curW=el.getBoundingClientRect().width||needW;
+  }
+  el.style.overflowX=(needW>maxW+1)?'auto':'hidden';
+
+  // 사용자가 Enter로 만든 실제 여러 줄은 필요한 만큼 아래로 확장한다.
+  // 자동 줄바꿈이 없으므로 긴 한 줄 때문에 세로 스크롤이 생기는 일은 없다.
+  let curH=el.getBoundingClientRect().height||el.offsetHeight||24;
+  const needH=Math.ceil(el.scrollHeight+3);
+  if(needH>curH+1){
+    el.style.height=Math.min(maxH,needH)+'px';
+    curH=el.getBoundingClientRect().height||needH;
+  }
+  el.style.overflowY=(needH>maxH+1)?'auto':'hidden';
+  syncTextEditorVerticalAlignment(el);
 }
 function setLineHeightPct(v){
   const pct=Math.max(70,Math.min(300,Math.round(Number(v)||100)));
@@ -2847,6 +2909,7 @@ function applyRichStyleToEditorSelection(ed,patch=textStylePatchFor('all')){
 function insertLineBreakAtSelection(){
   const ed=actTed, range=getEditorRange(ed); if(!range)return;
   range.deleteContents(); const br=document.createElement('br'); range.insertNode(br); range.setStartAfter(br); range.collapse(true); restoreEditorRange(ed,range);
+  requestAnimationFrame(()=>syncTextEditorViewport(ed));
 }
 function insertFragmentIntoEditor(ed,frag){
   const range=getEditorRange(ed); if(!range)return false;
@@ -2933,10 +2996,17 @@ function measureRichText(o, c=ctx){
     let opticalBias=0;
     if(hasLatinOrDigit&&!hasCjk&&maxFont>0){
       const descRatio=desc/maxFont;
-      // descender가 거의 없는 대문자/숫자는 약 7%, 일반 영문은 약 3.5% 하향.
-      opticalBias=maxFont*(descRatio<0.08?0.07:0.035);
-      // 작은 글자에서도 0.5px 미만 보정은 체감이 거의 없고, 큰 글자에서는 과도한 이동 방지.
-      opticalBias=Math.max(0.5,Math.min(opticalBias,3));
+      const trimmed=lineText.trim();
+      const singleLatin=/^[A-Za-z]$/.test(trimmed);
+      const singleDescender=/^[gjpqy]$/.test(trimmed);
+      // 화면 비교 결과, 영문 한 글자는 일반 Latin 줄보다 약간 더 아래에 두는 편이
+      // 박스의 시각 중심과 잘 맞았다. descender(g/j/p/q/y)는 기존 보정을 유지한다.
+      if(singleLatin&&!singleDescender){
+        opticalBias=Math.max(1.5,Math.min(maxFont*0.10,3.5));
+      }else{
+        opticalBias=maxFont*(descRatio<0.08?0.07:0.035);
+        opticalBias=Math.max(0.5,Math.min(opticalBias,3));
+      }
     }
     layout.push({runs:line,width,asc,desc,maxFont,topOffset:totalH,baselineOffset:totalH+extraTop+asc+opticalBias,lineHeightPx,opticalBias});
     totalH += lineHeightPx;
@@ -2985,12 +3055,15 @@ function openTed(x,y,exist=null){
   }
   applyEdSt(ed);
   ed.style.position='absolute'; ed.style.left=x+'px'; ed.style.top=y+'px'; ed.style.border='1.5px dashed var(--accent)';
-  ed.style.outline='none'; ed.style.resize='both'; ed.style.zIndex='50'; ed.style.minWidth='80px'; ed.style.minHeight='28px';
-  ed.style.padding='2px 4px'; ed.style.overflow='auto'; ed.style.boxSizing='border-box'; ed.style.background='transparent'; ed.style.pointerEvents='auto';
+  ed.style.outline='none'; ed.style.resize='both'; ed.style.zIndex='50'; ed.style.minWidth='80px'; ed.style.minHeight=Math.max(24,Math.ceil((fSz||18)*(fLineHeight||1)+6))+'px';
+  ed.style.padding='2px 4px'; ed.style.whiteSpace='pre'; ed.style.wordBreak='normal'; ed.style.overflowWrap='normal';
+  ed.style.overflowX='hidden'; ed.style.overflowY='hidden'; ed.style.boxSizing='border-box'; ed.style.background='transparent'; ed.style.pointerEvents='auto';
   TO.style.pointerEvents='none'; TO.appendChild(ed); actTed=ed; editingId=null; renderAll();
   setTimeout(()=>{ ed.focus(); const sel=window.getSelection(); if(sel){ const r=document.createRange(); r.selectNodeContents(ed); r.collapse(false); sel.removeAllRanges(); sel.addRange(r); } },0);
   ed.addEventListener('keydown',e=>{ if(e.key==='Escape'){ e.preventDefault(); commitT(); } if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ e.preventDefault(); commitT(); } if(e.key==='Enter'&&!e.ctrlKey&&!e.metaKey){ e.preventDefault(); insertLineBreakAtSelection(); } });
-  ed.addEventListener('paste',e=>handleRichEditorPaste(ed,e));
+  ed.addEventListener('paste',e=>{handleRichEditorPaste(ed,e);requestAnimationFrame(()=>syncTextEditorViewport(ed));});
+  ed.addEventListener('input',()=>requestAnimationFrame(()=>syncTextEditorViewport(ed)));
+  requestAnimationFrame(()=>syncTextEditorViewport(ed));
   ed.addEventListener('mouseup',rememberEditorSelection);
   ed.addEventListener('keyup',rememberEditorSelection);
   ed.addEventListener('touchend',()=>setTimeout(rememberEditorSelection,0));
