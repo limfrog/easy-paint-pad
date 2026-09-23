@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.1 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.1 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.1.1 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.1</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.1.1</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -1590,13 +1590,25 @@ function insertMusicSymbolAtCenter(){
 function snapObjs(){
   ensureLayerState();
   return {
-    objs:objs.map(o=>{const c=Object.assign({},o);if(c.type==='stroke')c.points=o.points.map(p=>({...p}));if(c.type==='image'){c._src=o.img?.src||'';delete c.img;}return c;}),
+    objs:objs.map(o=>{
+      const c=Object.assign({},o);
+      if(c.type==='stroke')c.points=o.points.map(p=>({...p}));
+      if(Array.isArray(o.richLines))c.richLines=o.richLines.map(line=>Array.isArray(line)?line.map(run=>({...run})):[]);
+      if(c.type==='image'){c._src=o.img?.src||'';delete c.img;}
+      return c;
+    }),
     layers:layers.map(l=>({...l})),activeLayerId,layerSeq
   };
 }
 function restoreObjs(snap){
   const state=Array.isArray(snap)?{objs:snap}:snap;
-  objs=(state.objs||[]).map(o=>{const r=Object.assign({},o);if(r.type==='stroke')r.points=o.points.map(p=>({...p}));if(r.type==='image'&&r._src){const img=new Image();img.src=r._src;r.img=img;delete r._src;}return r;});
+  objs=(state.objs||[]).map(o=>{
+    const r=Object.assign({},o);
+    if(r.type==='stroke')r.points=o.points.map(p=>({...p}));
+    if(Array.isArray(o.richLines))r.richLines=o.richLines.map(line=>Array.isArray(line)?line.map(run=>({...run})):[]);
+    if(r.type==='image'&&r._src){const img=new Image();img.src=r._src;r.img=img;delete r._src;}
+    return r;
+  });
   if(Array.isArray(state.layers)&&state.layers.length) layers=state.layers.map(l=>({...l})); else resetLayers();
   activeLayerId=state.activeLayerId||layers[layers.length-1].id;layerSeq=state.layerSeq||layers.length;ensureLayerState();
 }
@@ -2756,7 +2768,14 @@ function applyShapeFill(){
 }
 
 function escHtml(s){return String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
-function normalizeFF(v){return normalizeFontFamily(v||'Noto Sans KR');}
+function normalizeFF(v){
+  // Easy Paint Pad에는 PDF Markly의 normalizeFontFamily()가 없으므로
+  // 자체적으로 안전한 font-family 문자열을 반환한다.
+  // 이 함수가 없으면 리치 텍스트를 확정(renderAll)하는 순간 ReferenceError가 나서
+  // 편집 박스와 텍스트가 함께 사라져 보일 수 있다.
+  const raw=String(v||'Noto Sans KR').trim();
+  return raw||'Noto Sans KR';
+}
 function cssToHex(v){
   if(!v) return fgH;
   if(v.startsWith('#')) return v;
@@ -2967,12 +2986,13 @@ function commitT(){
     if(ed._savedObj){ const insertAt=ed._savedIdx!=null?Math.min(ed._savedIdx,objs.length):objs.length; objs.splice(insertAt,0,ed._savedObj); }
     renderAll(); return;
   }
-  const props={fontFamily:fFam,fontSize:fSz,lineHeight:fLineHeight,bold:fBold,italic:fItal,underline:fUnder,color:fgH,alpha:fgA,_edW:edW,_edH:edH,box:fBox,boxPad:fBoxPad,boxRadius:fBoxRadius,boxBorder:fBoxBorder,boxFill:fBoxFill,boxBgColor:fBoxFill?bgH:'',boxBgAlpha:fBoxFill?bgA:1,richLines:richLines};
+  const props={fontFamily:normalizeFF(fFam),fontSize:fSz,lineHeight:fLineHeight,bold:fBold,italic:fItal,underline:fUnder,color:fgH,alpha:fgA,_edW:edW,_edH:edH,box:fBox,boxPad:fBoxPad,boxRadius:fBoxRadius,boxBorder:fBoxBorder,boxFill:fBoxFill,boxBgColor:fBoxFill?bgH:'',boxBgAlpha:fBoxFill?bgA:1,richLines:richLines};
   if(ed._savedObj){
-    const o=Object.assign(ed._savedObj,props); o.text=plainText;
+    const o=normalizeRichTextObject(Object.assign(ed._savedObj,props)); o.text=plainText;
     const insertAt=ed._savedIdx!=null?Math.min(ed._savedIdx,objs.length):objs.length; objs.splice(insertAt,0,o); selId=o.id;
   }else{
-    const newObj=Object.assign({id:mkId(),type:'text',x:ed._x,y:ed._y,text:plainText,layerId:activeLayerId},props); objs.push(newObj); selId=newObj.id;
+    const newObj=normalizeRichTextObject(Object.assign({id:mkId(),type:'text',x:ed._x,y:ed._y,text:plainText,layerId:activeLayerId},props));
+    objs.push(newObj); selId=newObj.id;
   }
   saveH(); tool='select2'; document.querySelectorAll('[id^="tool-"]').forEach(b=>b.classList.remove('active')); document.querySelectorAll('#tool-select2').forEach(b=>b.classList.add('active')); HC.style.cursor='default'; document.getElementById('statusTool').textContent='도구: 선택/이동';
 }
