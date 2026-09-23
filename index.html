@@ -1054,7 +1054,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
   <div class="rs"><div class="rs-body" style="flex-direction:column;gap:4px;justify-content:center;padding-bottom:14px">
     <div style="display:flex;align-items:center;gap:4px">
       <span style="font-size:9px;color:var(--muted);min-width:22px">폰트</span>
-      <select class="sel" id="fontFamily" style="width:180px" onchange="updateTextStyle()">
+      <select class="sel" id="fontFamily" style="width:180px" onchange="updateTextStyle('fontFamily')">
         <optgroup label="─ 한글 고딕 ─">
           <option value="'Apple SD Gothic Neo','Malgun Gothic',sans-serif">Apple SD Gothic / 맑은고딕</option>
           <option value="'Noto Sans KR',sans-serif">Noto Sans KR</option>
@@ -1166,7 +1166,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
         <input type="hidden" id="boxBorder" value="1">
         <div class="vdiv"></div>
         <label style="font-size:9px;color:var(--muted);display:flex;align-items:center;gap:2px;cursor:pointer">
-          <input type="checkbox" id="boxFill" onchange="updateTextStyle()" style="width:11px;height:11px;cursor:pointer">배경
+          <input type="checkbox" id="boxFill" onchange="updateTextStyle('box')" style="width:11px;height:11px;cursor:pointer">배경
         </label>
 
       </div>
@@ -2279,7 +2279,7 @@ function buildPals(){
       if(IS_TOUCH_DEVICE&&mobileColorTarget==='bg'){
         bgH=c;updColorUI();applyBackgroundColorToSel();
       }else{
-        fgH=c;updColorUI();applyColorToSel();if(actTed)actTed.style.color=fgH;
+        fgH=c;updColorUI();applyColorToSel();
       }
     });
     s.addEventListener('contextmenu',e=>{e.preventDefault();bgH=c;updColorUI();applyBackgroundColorToSel();});
@@ -2490,8 +2490,12 @@ document.getElementById('colorPickerInput').addEventListener('input',e=>{
   applyPickedColor(e.target.value);
 });
 function applyColorToSel(){
-  // 텍스트 에디터가 열려있으면 에디터 색상 즉시 반영
-  if(actTed){ applyEdSt(actTed); applyRichStyleToEditorSelection(actTed); }
+  if(actTed){
+    const range=getEditorRange(actTed);
+    if(range&&!range.collapsed) applyRichStyleToEditorSelection(actTed,{color:fgH});
+    else actTed.style.color=fgH;
+    return;
+  }
   if(!selId)return;
   const o=objs.find(x=>x.id===selId);if(!isObjEditable(o))return;
   if(o.type==='stroke')o.color=fgH;
@@ -2516,7 +2520,7 @@ function changeBoxNum(id,d){
   const nv=Math.max(min,Math.min(max,(parseInt(el.value)||0)+d));
   el.value=nv;
   document.getElementById(id+'Display').textContent=nv;
-  updateTextStyle();
+  updateTextStyle('box');
 }
 function syncCanvasSizeUI(){
   const w=document.getElementById('canvasW').value;
@@ -2536,9 +2540,9 @@ function changeCanvasSize(id,d){
 // ── 공용 숫자 입력 모달: 리본의 미니 +/- 컨트롤을 탭하면 정확한 값을 입력할 수 있는 모달
 const NUM_MODAL_CONFIG={
   stroke:{label:'선 두께',min:1,max:100,unit:'px',getter:()=>parseInt(document.getElementById('customStroke').value)||1,setter:v=>setStroke(v)},
-  boxPadding:{label:'박스 패딩',min:0,max:40,unit:'px',getter:()=>parseInt(document.getElementById('boxPadding').value)||0,setter:v=>{document.getElementById('boxPadding').value=v;document.getElementById('boxPaddingDisplay').textContent=v;updateTextStyle();}},
-  boxRadius:{label:'모서리 반경',min:0,max:40,unit:'px',getter:()=>parseInt(document.getElementById('boxRadius').value)||0,setter:v=>{document.getElementById('boxRadius').value=v;document.getElementById('boxRadiusDisplay').textContent=v;updateTextStyle();}},
-  boxBorder:{label:'테두리 두께',min:0,max:10,unit:'px',getter:()=>parseInt(document.getElementById('boxBorder').value)||1,setter:v=>{document.getElementById('boxBorder').value=v;document.getElementById('boxBorderDisplay').textContent=v;updateTextStyle();}},
+  boxPadding:{label:'박스 패딩',min:0,max:40,unit:'px',getter:()=>parseInt(document.getElementById('boxPadding').value)||0,setter:v=>{document.getElementById('boxPadding').value=v;document.getElementById('boxPaddingDisplay').textContent=v;updateTextStyle('box');}},
+  boxRadius:{label:'모서리 반경',min:0,max:40,unit:'px',getter:()=>parseInt(document.getElementById('boxRadius').value)||0,setter:v=>{document.getElementById('boxRadius').value=v;document.getElementById('boxRadiusDisplay').textContent=v;updateTextStyle('box');}},
+  boxBorder:{label:'테두리 두께',min:0,max:10,unit:'px',getter:()=>parseInt(document.getElementById('boxBorder').value)||1,setter:v=>{document.getElementById('boxBorder').value=v;document.getElementById('boxBorderDisplay').textContent=v;updateTextStyle('box');}},
   lineHeight:{label:'줄간격',min:70,max:300,unit:'%',getter:()=>parseInt(document.getElementById('textLineHeight').value)||100,setter:v=>setLineHeightPct(v)},
   canvasW:{label:'캔버스 너비',min:1,max:9999,unit:'px',getter:()=>parseInt(document.getElementById('canvasW').value)||800,setter:v=>{document.getElementById('canvasW').value=v;document.getElementById('canvasWDisplay').textContent=v;}},
   canvasH:{label:'캔버스 높이',min:1,max:9999,unit:'px',getter:()=>parseInt(document.getElementById('canvasH').value)||600,setter:v=>{document.getElementById('canvasH').value=v;document.getElementById('canvasHDisplay').textContent=v;}}
@@ -2575,7 +2579,17 @@ document.getElementById('numModal').addEventListener('click',e=>{
   if(e.target.id==='numModal') closeNumModal();
 });
 
-function updateTextStyle(){
+function textStylePatchFor(changed){
+  if(changed==='fontFamily')return{fontFamily:fFam};
+  if(changed==='fontSize')return{fontSize:fSz};
+  if(changed==='bold')return{bold:fBold};
+  if(changed==='italic')return{italic:fItal};
+  if(changed==='underline')return{underline:fUnder};
+  if(changed==='color')return{color:fgH};
+  if(changed==='all')return{fontFamily:fFam,fontSize:fSz,bold:fBold,italic:fItal,underline:fUnder,color:fgH};
+  return null;
+}
+function updateTextStyle(changed='all'){
   fFam=document.getElementById('fontFamily').value;
   fSz=parseInt(document.getElementById('fontSizeInput').value)||18;
   const lhEl=document.getElementById('textLineHeight');
@@ -2589,16 +2603,32 @@ function updateTextStyle(){
   if(bbEl){ const v=parseInt(bbEl.value); fBoxBorder=isNaN(v)?1:v; }
   if(bfEl){ fBoxFill=bfEl.checked; }
   updFontPreview();
+
   if(actTed){
-    applyEdSt(actTed);
-    applyRichStyleToEditorSelection(actTed);
+    // 줄간격은 텍스트박스 전체 속성이다.
+    actTed.style.lineHeight=String(fLineHeight);
+    const patch=textStylePatchFor(changed);
+    const range=getEditorRange(actTed);
+    if(patch && range && !range.collapsed){
+      // 부분 선택이 있으면 선택 영역에만 해당 속성을 적용한다.
+      applyRichStyleToEditorSelection(actTed,patch);
+    }else if(patch && (!range || range.collapsed)){
+      // 선택 영역이 없을 때는 이후 입력/일반 단일서식 동작을 위한 기본 스타일만 갱신한다.
+      applyEdSt(actTed);
+    }
+    return;
   }
-  if(selId&&!actTed){
+
+  if(selId){
     const o=objs.find(x=>x.id===selId);
     if(isObjEditable(o)&&o.type==='text'){
-      o.fontFamily=fFam; o.fontSize=fSz; o.lineHeight=fLineHeight; o.bold=fBold; o.italic=fItal; o.underline=fUnder;
+      o.lineHeight=fLineHeight;
       o.box=fBox; o.boxPad=fBoxPad; o.boxRadius=fBoxRadius; o.boxBorder=fBoxBorder; o.boxFill=fBoxFill; if(o.boxFill&&!o.boxBgColor)o.boxBgColor=bgH;
-      if(o.richLines) applyStyleToAllRichRuns(o.richLines,{fontFamily:fFam,fontSize:fSz,bold:fBold,italic:fItal,underline:fUnder,color:fgH});
+      const patch=textStylePatchFor(changed);
+      if(patch){
+        Object.assign(o,patch);
+        if(o.richLines) applyStyleToAllRichRuns(o.richLines,patch);
+      }
       renderAll(); saveHDebounced();
     }
   }
@@ -2616,7 +2646,7 @@ function setLineHeightPct(v){
   if(input)input.value=pct;
   if(display)display.textContent=pct;
   fLineHeight=pct/100;
-  updateTextStyle();
+  updateTextStyle('lineHeight');
 }
 function changeLineHeight(d){
   const input=document.getElementById('textLineHeight');
@@ -2628,7 +2658,7 @@ function changeFontSize(d){
   const newVal=Math.max(6,Math.min(300,(parseInt(i.value)||18)+d));
   i.value=newVal;
   syncFontSizeUI(newVal);
-  updateTextStyle();
+  updateTextStyle('fontSize');
 }
 function syncFontSizeUI(v){
   document.getElementById('fontSizeDisplay').textContent=v;
@@ -2650,12 +2680,12 @@ function setFontSizeFromSlider(v){
   const nv=Math.max(6,Math.min(300,parseInt(v)||18));
   document.getElementById('fontSizeInput').value=nv;
   syncFontSizeUI(nv);
-  updateTextStyle();
+  updateTextStyle('fontSize');
 }
 function setFontSizeExact(v){
   document.getElementById('fontSizeInput').value=v;
   syncFontSizeUI(v);
-  updateTextStyle();
+  updateTextStyle('fontSize');
 }
 // 모달 바깥 클릭 시 닫기
 document.getElementById('fontSizeModal').addEventListener('click',e=>{
@@ -2671,7 +2701,7 @@ function toggleTStyle(s){
     const bo=document.getElementById('box-options');
     if(bo) bo.style.display=fBox?'flex':'none';
   }
-  updateTextStyle();
+  updateTextStyle(s==='box'?'box':s);
 }
 function updBoxBgBtn(){
   const btn=document.getElementById('boxBgBtn');
@@ -2772,13 +2802,27 @@ function restoreEditorRange(ed,range){
     ed._savedRange=range.cloneRange();
   }catch(_){ }
 }
-function applyRichStyleToEditorSelection(ed){
-  if(!ed)return false;
-  const range=getEditorRange(ed); if(!range||range.collapsed) return false;
+function applyStylePatchToElement(el,patch){
+  if(!el||!patch)return;
+  if(Object.prototype.hasOwnProperty.call(patch,'fontFamily'))el.style.fontFamily=normalizeFF(patch.fontFamily);
+  if(Object.prototype.hasOwnProperty.call(patch,'fontSize'))el.style.fontSize=Math.max(6,Number(patch.fontSize)||fSz)+'px';
+  if(Object.prototype.hasOwnProperty.call(patch,'bold'))el.style.fontWeight=patch.bold?'bold':'normal';
+  if(Object.prototype.hasOwnProperty.call(patch,'italic'))el.style.fontStyle=patch.italic?'italic':'normal';
+  if(Object.prototype.hasOwnProperty.call(patch,'underline'))el.style.textDecoration=patch.underline?'underline':'none';
+  if(Object.prototype.hasOwnProperty.call(patch,'color'))el.style.color=patch.color||fgH;
+}
+function applyRichStyleToEditorSelection(ed,patch=textStylePatchFor('all')){
+  if(!ed||!patch)return false;
+  const range=getEditorRange(ed); if(!range||range.collapsed)return false;
   const span=document.createElement('span');
-  span.style.fontFamily=normalizeFF(fFam); span.style.fontSize=fSz+'px'; span.style.fontWeight=fBold?'bold':'normal'; span.style.fontStyle=fItal?'italic':'normal'; span.style.textDecoration=fUnder?'underline':'none'; span.style.color=fgH;
-  const frag=range.extractContents(); span.appendChild(frag); range.insertNode(span);
-  const nr=document.createRange(); nr.selectNodeContents(span); restoreEditorRange(ed,nr); ed.normalize();
+  const frag=range.extractContents();
+  span.appendChild(frag);
+  // 선택 조각 안에 기존 span이 있어도 변경한 속성은 확실히 덮어쓴다.
+  applyStylePatchToElement(span,patch);
+  span.querySelectorAll('*').forEach(el=>applyStylePatchToElement(el,patch));
+  range.insertNode(span);
+  const nr=document.createRange(); nr.selectNodeContents(span); restoreEditorRange(ed,nr);
+  ed.normalize();
   return true;
 }
 function insertLineBreakAtSelection(){
@@ -2889,8 +2933,8 @@ function openTed(x,y,exist=null){
   applyEdSt(ed);
   ed.style.position='absolute'; ed.style.left=x+'px'; ed.style.top=y+'px'; ed.style.border='1.5px dashed var(--accent)';
   ed.style.outline='none'; ed.style.resize='both'; ed.style.zIndex='50'; ed.style.minWidth='80px'; ed.style.minHeight='28px';
-  ed.style.padding='2px 4px'; ed.style.overflow='auto'; ed.style.boxSizing='border-box'; ed.style.background='transparent';
-  TO.style.pointerEvents='auto'; TO.appendChild(ed); actTed=ed; editingId=null; renderAll();
+  ed.style.padding='2px 4px'; ed.style.overflow='auto'; ed.style.boxSizing='border-box'; ed.style.background='transparent'; ed.style.pointerEvents='auto';
+  TO.style.pointerEvents='none'; TO.appendChild(ed); actTed=ed; editingId=null; renderAll();
   setTimeout(()=>{ ed.focus(); const sel=window.getSelection(); if(sel){ const r=document.createRange(); r.selectNodeContents(ed); r.collapse(false); sel.removeAllRanges(); sel.addRange(r); } },0);
   ed.addEventListener('keydown',e=>{ if(e.key==='Escape'){ e.preventDefault(); commitT(); } if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ e.preventDefault(); commitT(); } if(e.key==='Enter'&&!e.ctrlKey&&!e.metaKey){ e.preventDefault(); insertLineBreakAtSelection(); } });
   ed.addEventListener('paste',e=>handleRichEditorPaste(ed,e));
@@ -2901,17 +2945,35 @@ function openTed(x,y,exist=null){
 
 function commitT(){
   if(!actTed)return;
-  const ed=actTed; actTed=null; editingId=null; TO.style.pointerEvents='none';
+  const ed=actTed;
   const edW=Math.max(80,ed.offsetWidth), edH=Math.max(28,ed.offsetHeight);
-  if(TO.contains(ed)) TO.removeChild(ed);
-  const richLines=collectRichLinesFromEditor(ed); const plainText=richLinesPlainText(richLines);
+
+  // 중요: contenteditable을 DOM에서 제거하기 전에 서식/텍스트를 수집한다.
+  // 일부 모바일 브라우저에서는 분리된 노드의 getComputedStyle 결과가 비어 객체가 사라질 수 있다.
+  let richLines;
+  try{
+    richLines=collectRichLinesFromEditor(ed);
+  }catch(err){
+    console.warn('리치 텍스트 수집 실패, 일반 텍스트로 복구:',err);
+    const fallback=String(ed.innerText||ed.textContent||'').replace(/\r/g,'');
+    richLines=fallback.split('\n').map(line=>[{text:line,fontFamily:fFam,fontSize:fSz,bold:fBold,italic:fItal,underline:fUnder,color:fgH}]);
+  }
+  const plainText=richLinesPlainText(richLines);
+
+  actTed=null; editingId=null; TO.style.pointerEvents='none';
+  if(TO.contains(ed))TO.removeChild(ed);
+
   if(!plainText || !plainText.trim()){
     if(ed._savedObj){ const insertAt=ed._savedIdx!=null?Math.min(ed._savedIdx,objs.length):objs.length; objs.splice(insertAt,0,ed._savedObj); }
     renderAll(); return;
   }
   const props={fontFamily:fFam,fontSize:fSz,lineHeight:fLineHeight,bold:fBold,italic:fItal,underline:fUnder,color:fgH,alpha:fgA,_edW:edW,_edH:edH,box:fBox,boxPad:fBoxPad,boxRadius:fBoxRadius,boxBorder:fBoxBorder,boxFill:fBoxFill,boxBgColor:fBoxFill?bgH:'',boxBgAlpha:fBoxFill?bgA:1,richLines:richLines};
-  if(ed._savedObj){ const o=Object.assign(ed._savedObj, props); o.text=plainText; const insertAt=ed._savedIdx!=null?Math.min(ed._savedIdx,objs.length):objs.length; objs.splice(insertAt,0,o); selId=o.id; }
-  else { const newObj=Object.assign({id:mkId(),type:'text',x:ed._x,y:ed._y,text:plainText,layerId:activeLayerId},props); objs.push(newObj); selId=newObj.id; }
+  if(ed._savedObj){
+    const o=Object.assign(ed._savedObj,props); o.text=plainText;
+    const insertAt=ed._savedIdx!=null?Math.min(ed._savedIdx,objs.length):objs.length; objs.splice(insertAt,0,o); selId=o.id;
+  }else{
+    const newObj=Object.assign({id:mkId(),type:'text',x:ed._x,y:ed._y,text:plainText,layerId:activeLayerId},props); objs.push(newObj); selId=newObj.id;
+  }
   saveH(); tool='select2'; document.querySelectorAll('[id^="tool-"]').forEach(b=>b.classList.remove('active')); document.querySelectorAll('#tool-select2').forEach(b=>b.classList.add('active')); HC.style.cursor='default'; document.getElementById('statusTool').textContent='도구: 선택/이동';
 }
 
@@ -3809,7 +3871,7 @@ function onDown(e){
 
   // ── 텍스트 도구: 캔버스 클릭 시 새 텍스트 에디터 열기
   if(tool==='text'){
-    if(actTed) commitT(); // 기존 에디터 있으면 먼저 확정
+    if(actTed){ commitT(); return; } // 첫 바깥 클릭은 현재 텍스트 확정만 수행
     openTed(xi,yi);
     return;
   }
