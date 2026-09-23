@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.7 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.8 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.1.7 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.1.8 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.1.7</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.1.8</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -1597,7 +1597,10 @@ function snapObjs(){
       if(c.type==='image'){c._src=o.img?.src||'';delete c.img;}
       return c;
     }),
-    layers:layers.map(l=>({...l})),activeLayerId,layerSeq
+    layers:layers.map(l=>({...l})),activeLayerId,layerSeq,
+    // 캔버스 자체 크기도 객체 상태와 함께 히스토리에 저장한다.
+    // 이미지/캔버스 리사이즈 후 Undo 시 객체만 커지고 캔버스는 작은 채로 남는 문제를 방지한다.
+    canvasW:CW,canvasH:CH
   };
 }
 function restoreObjs(snap){
@@ -1611,6 +1614,16 @@ function restoreObjs(snap){
   });
   if(Array.isArray(state.layers)&&state.layers.length) layers=state.layers.map(l=>({...l})); else resetLayers();
   activeLayerId=state.activeLayerId||layers[layers.length-1].id;layerSeq=state.layerSeq||layers.length;ensureLayerState();
+
+  // v2.1.8: 히스토리 스냅샷에 캔버스 크기가 있으면 객체와 함께 복원한다.
+  // 예전 히스토리/파일처럼 값이 없는 경우에는 현재 크기를 유지해 하위 호환성을 보장한다.
+  const rw=Number(state.canvasW), rh=Number(state.canvasH);
+  if(Number.isFinite(rw)&&rw>0&&Number.isFinite(rh)&&rh>0){
+    if(CW!==rw||CH!==rh) setCS(rw,rh);
+    const wi=document.getElementById('canvasW'), hi=document.getElementById('canvasH');
+    if(wi)wi.value=rw; if(hi)hi.value=rh;
+    syncCanvasSizeUI();
+  }
 }
 function saveH(){
   undoSt.push(snapObjs()); if(undoSt.length>60)undoSt.shift();
