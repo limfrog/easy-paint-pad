@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.0.3 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.0.4 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.0.3 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.0.4 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.0.3</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.0.4</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -800,6 +800,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
           <tr><td style="padding:3px 8px;color:var(--muted);width:145px">텍스트 입력</td><td>텍스트 도구 선택 후 캔버스를 클릭하여 입력</td><td style="color:var(--muted);text-align:right">T</td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">글꼴 / 크기</td><td>한글·영문·음악 글꼴과 글자 크기 설정</td><td></td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">스타일</td><td>굵게·기울임·밑줄 적용</td><td></td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">줄간격</td><td>여러 줄 텍스트의 줄 간격을 70%~300% 범위에서 조절. 기존 텍스트를 선택한 뒤에도 변경 가능</td><td></td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">박스 텍스트</td><td>텍스트 주위에 박스 표시. 패딩·모서리 반경 조절 가능</td><td></td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">다시 편집</td><td>기존 텍스트를 더블클릭하여 내용 수정</td><td></td></tr>
         </table>
@@ -860,7 +861,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
         </ul>
 
         <div style="margin-top:16px;padding-top:10px;border-top:1px solid var(--border);font-size:10px;color:var(--muted);text-align:center">
-          Easy Paint Pad 2.0.3 · HTML5 Canvas 기반
+          Easy Paint Pad 2.0.4 · HTML5 Canvas 기반
         </div>
       </div>
     </div>
@@ -1126,6 +1127,15 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       </div>
       <input type="hidden" id="fontSizeInput" value="18">
       <span style="font-size:9px;color:var(--muted)">pt</span>
+      <div class="vdiv"></div>
+      <span style="font-size:9px;color:var(--muted)">줄간격</span>
+      <div class="fsize-ctrl fsize-ctrl-sm">
+        <button class="fsize-btn" onclick="changeLineHeight(-5)" ontouchstart="event.preventDefault();changeLineHeight(-5)">−</button>
+        <span class="fsize-display" id="lineHeightDisplay" onclick="openNumModal('lineHeight')">100</span>
+        <button class="fsize-btn" onclick="changeLineHeight(5)" ontouchstart="event.preventDefault();changeLineHeight(5)">＋</button>
+      </div>
+      <input type="hidden" id="textLineHeight" value="100">
+      <span style="font-size:9px;color:var(--muted)">%</span>
       <div class="vdiv"></div>
       <button class="tsb" data-tip="굵게" data-key="B" id="btn-bold" onclick="toggleTStyle('bold')" style="font-weight:bold">B</button>
       <button class="tsb" data-tip="기울임" data-key="I" id="btn-italic" onclick="toggleTStyle('italic')" style="font-style:italic">I</button>
@@ -1562,7 +1572,7 @@ function insertMusicSymbolAt(x,y){
   const fontSize=symbolSize;
   const newObj={
     id:mkId(),type:'text',x,y,text:txt,layerId:activeLayerId,
-    fontFamily,fontSize,bold:false,italic:false,underline:false,
+    fontFamily,fontSize,lineHeight:1,bold:false,italic:false,underline:false,
     color:fgH,alpha:fgA,_edW:Math.max(80,fontSize*Math.max(txt.length,1)*0.95),_edH:Math.max(28,fontSize*1.25),
     box:false,boxPad:0,boxRadius:0,boxBorder:1,boxFill:false,boxBgColor:'',boxBgAlpha:1,
     musicSymbol:true,symbolKey:def.key,symbolLabel:def.label
@@ -1778,9 +1788,9 @@ function dText(c,o,hit){
   c.globalAlpha=hit?1:(o.alpha??1);
   const lines=o.text.split('\n');
   const maxW=Math.max(...lines.map(l=>c.measureText(l).width),10);
-  // 실제 글자 높이: fontSize 기준 (baseline 기준으로 위=0.8, 아래=0.2 비율)
-  const lineH=o.fontSize*1.1; // 줄간격
-  const textH=lines.length*lineH;
+  // 줄간격은 fontSize 대비 배율로 저장한다. 기존 객체는 1.0(기존 실제 렌더 간격)으로 호환.
+  const lineH=o.fontSize*(o.lineHeight??1);
+  const textH=o.fontSize+Math.max(0,lines.length-1)*lineH;
   const pad=o.box?(o.boxPad??6):0;
 
   if(hit){
@@ -1819,18 +1829,18 @@ function dText(c,o,hit){
       ox2.font=fontStr;
       ox2.fillStyle=o.color;
       ox2.globalAlpha=o.alpha??1;
-      lines.forEach((l,i)=>ox2.fillText(l, tx-bx, ty-by+(i+1)*o.fontSize));
+      lines.forEach((l,i)=>ox2.fillText(l, tx-bx, ty-by+o.fontSize+i*lineH));
       if(o.underline)lines.forEach((l,i)=>{
         const w=ox2.measureText(l).width;
-        ox2.fillRect(tx-bx, Math.round(ty-by+(i+1)*o.fontSize+2), w, Math.max(1,o.fontSize*.07));
+        ox2.fillRect(tx-bx, Math.round(ty-by+o.fontSize+i*lineH+2), w, Math.max(1,o.fontSize*.07));
       });
       c.globalAlpha=o.alpha??1;
       c.drawImage(oc2, bx, by, bw, bh);
     } else {
-      lines.forEach((l,i)=>c.fillText(l, tx, ty+(i+1)*o.fontSize));
+      lines.forEach((l,i)=>c.fillText(l, tx, ty+o.fontSize+i*lineH));
       if(o.underline)lines.forEach((l,i)=>{
         const w=c.measureText(l).width;
-        c.fillRect(tx, Math.round(ty+(i+1)*o.fontSize+2), w, Math.max(1,o.fontSize*.07));
+        c.fillRect(tx, Math.round(ty+o.fontSize+i*lineH+2), w, Math.max(1,o.fontSize*.07));
       });
     }
   }
@@ -1922,7 +1932,8 @@ function getBounds(o){
       };
     }
     const mw=Math.max(...ls.map(l=>ctx.measureText(l).width),20);
-    const th=ls.length*o.fontSize*1.1;
+    const lineH=o.fontSize*(o.lineHeight??1);
+    const th=o.fontSize+Math.max(0,ls.length-1)*lineH;
     return{x:o.x-pad,y:o.y-pad,w:mw+pad*2,h:th+pad*2};
   }
   if(o.type==='image')return{x:o.x,y:o.y,w:o.w,h:o.h};
@@ -2171,7 +2182,7 @@ function resizeO(o,orig,nb){
 
 // ════════════ TOOL STATE ════════════
 let tool='select2',fgH='#000000',fgA=1,bgH='#ffffff',bgA=1,sw=1;
-let fSz=18,fFam='sans-serif',fBold=false,fItal=false,fUnder=false,fBox=false,fBoxPad=6,fBoxRadius=0,fBoxBorder=1,fBoxFill=false;
+let fSz=18,fFam='sans-serif',fLineHeight=1,fBold=false,fItal=false,fUnder=false,fBox=false,fBoxPad=6,fBoxRadius=0,fBoxBorder=1,fBoxFill=false;
 let drawing=false,dSX=0,dSY=0,actStroke=null,actShape=null,actTed=null;
 let editingId=null; // 현재 편집 중인 텍스트 객체 id (렌더에서 숨김 처리)
 let isDirty=false; // 미저장 변경사항 추적
@@ -2579,6 +2590,7 @@ const NUM_MODAL_CONFIG={
   boxPadding:{label:'박스 패딩',min:0,max:40,unit:'px',getter:()=>parseInt(document.getElementById('boxPadding').value)||0,setter:v=>{document.getElementById('boxPadding').value=v;document.getElementById('boxPaddingDisplay').textContent=v;updateTextStyle();}},
   boxRadius:{label:'모서리 반경',min:0,max:40,unit:'px',getter:()=>parseInt(document.getElementById('boxRadius').value)||0,setter:v=>{document.getElementById('boxRadius').value=v;document.getElementById('boxRadiusDisplay').textContent=v;updateTextStyle();}},
   boxBorder:{label:'테두리 두께',min:0,max:10,unit:'px',getter:()=>parseInt(document.getElementById('boxBorder').value)||1,setter:v=>{document.getElementById('boxBorder').value=v;document.getElementById('boxBorderDisplay').textContent=v;updateTextStyle();}},
+  lineHeight:{label:'줄간격',min:70,max:300,unit:'%',getter:()=>parseInt(document.getElementById('textLineHeight').value)||100,setter:v=>setLineHeightPct(v)},
   canvasW:{label:'캔버스 너비',min:1,max:9999,unit:'px',getter:()=>parseInt(document.getElementById('canvasW').value)||800,setter:v=>{document.getElementById('canvasW').value=v;document.getElementById('canvasWDisplay').textContent=v;}},
   canvasH:{label:'캔버스 높이',min:1,max:9999,unit:'px',getter:()=>parseInt(document.getElementById('canvasH').value)||600,setter:v=>{document.getElementById('canvasH').value=v;document.getElementById('canvasHDisplay').textContent=v;}}
 };
@@ -2617,6 +2629,8 @@ document.getElementById('numModal').addEventListener('click',e=>{
 function updateTextStyle(){
   fFam=document.getElementById('fontFamily').value;
   fSz=parseInt(document.getElementById('fontSizeInput').value)||18;
+  const lhEl=document.getElementById('textLineHeight');
+  if(lhEl){ const pct=parseInt(lhEl.value)||100; fLineHeight=Math.max(.7,Math.min(3,pct/100)); }
   // box 옵션은 display:none이어도 value는 읽을 수 있음
   const bpEl=document.getElementById('boxPadding');
   const brEl=document.getElementById('boxRadius');
@@ -2631,6 +2645,7 @@ function updateTextStyle(){
   if(actTed){
     actTed.style.fontFamily=fFam;
     actTed.style.fontSize=fSz+'px';
+    actTed.style.lineHeight=String(fLineHeight);
     actTed.style.fontWeight=fBold?'bold':'normal';
     actTed.style.fontStyle=fItal?'italic':'normal';
     actTed.style.textDecoration=fUnder?'underline':'none';
@@ -2640,16 +2655,30 @@ function updateTextStyle(){
   if(selId&&!actTed){
     const o=objs.find(x=>x.id===selId);
     if(isObjEditable(o)&&o.type==='text'){
-      o.fontFamily=fFam; o.fontSize=fSz; o.bold=fBold; o.italic=fItal; o.underline=fUnder;
+      o.fontFamily=fFam; o.fontSize=fSz; o.lineHeight=fLineHeight; o.bold=fBold; o.italic=fItal; o.underline=fUnder;
       o.box=fBox; o.boxPad=fBoxPad; o.boxRadius=fBoxRadius; o.boxBorder=fBoxBorder; o.boxFill=fBoxFill; if(o.boxFill&&!o.boxBgColor)o.boxBgColor=bgH;
       renderAll(); saveHDebounced();
     }
   }
 }
 function applyEdSt(el){
-  el.style.fontFamily=fFam;el.style.fontSize=fSz+'px';
+  el.style.fontFamily=fFam;el.style.fontSize=fSz+'px';el.style.lineHeight=String(fLineHeight);
   el.style.fontWeight=fBold?'bold':'normal';el.style.fontStyle=fItal?'italic':'normal';
   el.style.textDecoration=fUnder?'underline':'none';el.style.color=fgH;
+}
+function setLineHeightPct(v){
+  const pct=Math.max(70,Math.min(300,Math.round(Number(v)||100)));
+  const input=document.getElementById('textLineHeight');
+  const display=document.getElementById('lineHeightDisplay');
+  if(input)input.value=pct;
+  if(display)display.textContent=pct;
+  fLineHeight=pct/100;
+  updateTextStyle();
+}
+function changeLineHeight(d){
+  const input=document.getElementById('textLineHeight');
+  const cur=parseInt(input?.value)||100;
+  setLineHeightPct(cur+d);
 }
 function changeFontSize(d){
   const i=document.getElementById('fontSizeInput');
@@ -2779,6 +2808,9 @@ function openTed(x,y,exist=null){
     if(exist._edH) ed.style.height=exist._edH+'px';
     if(exist.fontFamily){ fFam=exist.fontFamily; document.getElementById('fontFamily').value=fFam; }
     if(exist.fontSize)  { fSz=exist.fontSize;    document.getElementById('fontSizeInput').value=fSz; syncFontSizeUI(fSz); }
+    fLineHeight=exist.lineHeight??1;
+    const lhPct=Math.max(70,Math.min(300,Math.round(fLineHeight*100)));
+    document.getElementById('textLineHeight').value=lhPct; document.getElementById('lineHeightDisplay').textContent=lhPct;
     fBold=!!exist.bold; fItal=!!exist.italic; fUnder=!!exist.underline; fBox=!!exist.box;
     fBoxPad=exist.boxPad??0; fBoxRadius=exist.boxRadius??0; fBoxBorder=exist.boxBorder??1;
     fBoxFill=!!exist.boxFill; fBoxBgColor=exist.boxBgColor||''; fBoxBgAlpha=exist.boxBgAlpha??1;
@@ -2803,7 +2835,7 @@ function openTed(x,y,exist=null){
   ed.style.border='1.5px dashed var(--accent)';
   ed.style.outline='none'; ed.style.resize='both'; ed.style.zIndex='50';
   ed.style.minWidth='80px'; ed.style.minHeight='28px';
-  ed.style.padding='2px 4px'; ed.style.lineHeight='1.35';
+  ed.style.padding='2px 4px'; ed.style.lineHeight=String(fLineHeight);
   ed.style.whiteSpace='pre'; ed.style.overflow='hidden';
   ed.style.boxSizing='border-box'; ed.style.background='transparent';
 
@@ -2841,7 +2873,7 @@ function commitT(){
   }
 
   const props={
-    fontFamily:fFam, fontSize:fSz,
+    fontFamily:fFam, fontSize:fSz, lineHeight:fLineHeight,
     bold:fBold, italic:fItal, underline:fUnder,
     color:fgH, alpha:fgA, _edW:edW, _edH:edH,
     box:fBox, boxPad:fBoxPad, boxRadius:fBoxRadius, boxBorder:fBoxBorder, boxFill:fBoxFill,
@@ -3485,7 +3517,10 @@ function selObj(id){
     if(o.type==='text'){
       document.getElementById('fontFamily').value=o.fontFamily||'sans-serif';
       document.getElementById('fontSizeInput').value=o.fontSize||18; syncFontSizeUI(o.fontSize||18);
-      fFam=o.fontFamily||'sans-serif';fSz=o.fontSize||18;
+      fFam=o.fontFamily||'sans-serif';fSz=o.fontSize||18;fLineHeight=o.lineHeight??1;
+      const lhPct=Math.max(70,Math.min(300,Math.round(fLineHeight*100)));
+      const lhEl=document.getElementById('textLineHeight');if(lhEl)lhEl.value=lhPct;
+      const lhDisp=document.getElementById('lineHeightDisplay');if(lhDisp)lhDisp.textContent=lhPct;
       fBold=!!o.bold;fItal=!!o.italic;fUnder=!!o.underline;
       fBox=!!o.box;
       fBoxPad=o.boxPad??6;fBoxRadius=o.boxRadius??0;fBoxBorder=o.boxBorder??1;fBoxFill=!!o.boxFill;
