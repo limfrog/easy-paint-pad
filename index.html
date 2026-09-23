@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.5 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.6 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.1.5 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.1.6 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.1.5</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.1.6</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -844,7 +844,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
         <h3 style="margin:15px 0 8px;font-size:14px;color:var(--accent)">✏️ 10. 편집 단축키</h3>
         <table style="width:100%;border-collapse:collapse;font-size:11px">
           <tr><td style="padding:3px 8px;color:var(--muted);width:145px">실행 취소 / 다시 실행</td><td>이전 상태 또는 취소한 상태로 이동</td><td style="color:var(--muted);text-align:right">Ctrl+Z / Ctrl+Y</td></tr>
-          <tr><td style="padding:3px 8px;color:var(--muted)">복사 / 잘라내기 / 붙여넣기</td><td>객체 또는 영역 편집</td><td style="color:var(--muted);text-align:right">Ctrl+C / X / V</td></tr>
+          <tr><td style="padding:3px 8px;color:var(--muted)">복사 / 잘라내기 / 붙여넣기</td><td>복사 후 캔버스를 클릭하면 그 위치에 붙여넣기</td><td style="color:var(--muted);text-align:right">Ctrl+C / X / V</td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">복제</td><td>선택 객체를 같은 위치에 복제</td><td style="color:var(--muted);text-align:right">Ctrl+D</td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">전체 선택</td><td>편집 가능한 객체 전체 선택</td><td style="color:var(--muted);text-align:right">Ctrl+A</td></tr>
           <tr><td style="padding:3px 8px;color:var(--muted)">삭제</td><td>선택 객체 또는 영역 삭제</td><td style="color:var(--muted);text-align:right">Delete</td></tr>
@@ -2146,7 +2146,7 @@ let drawing=false,dSX=0,dSY=0,actStroke=null,actShape=null,actTed=null;
 let editingId=null; // 현재 편집 중인 텍스트 객체 id (렌더에서 숨김 처리)
 let isDirty=false; // 미저장 변경사항 추적
 let dragging=false,dragLX=0,dragLY=0;
-let lastClickX=0,lastClickY=0; // 마지막 클릭 위치 (붙여넣기 기준)
+let lastClickX=0,lastClickY=0,lastCanvasClickAt=0; // 마지막 캔버스 클릭 위치/시각 (붙여넣기 기준)
 let resC=false,resDir='',resSX=0,resSY=0,resOW=0,resOH=0;
 
 // ── 영역 선택(marque) 상태
@@ -3267,13 +3267,33 @@ function copySelected(){
   const payload=JSON.stringify({_eppClip:true,version:2,obj:clip,copiedAt:clip._copiedAt});
   navigator.clipboard?.writeText(payload).catch(()=>{});
 }
+function translateObject(o,dx,dy){
+  if(!o||(!dx&&!dy))return;
+  if(o.type==='stroke')o.points=(o.points||[]).map(p=>({x:p.x+dx,y:p.y+dy}));
+  else if(o.type==='shape'){o.x1+=dx;o.y1+=dy;o.x2+=dx;o.y2+=dy;}
+  else{o.x=(o.x||0)+dx;o.y=(o.y||0)+dy;}
+}
+function placeObjectAtLastClick(o){
+  if(!o)return false;
+  // 복사 이후 사용자가 캔버스를 다시 클릭한 경우에만 그 위치를 붙여넣기 기준으로 사용한다.
+  // 새 클릭이 없으면 기존 동작처럼 원본에서 20px 오프셋하여 붙여넣는다.
+  const copiedAt=Number(clip?._copiedAt)||0;
+  if(!lastCanvasClickAt||lastCanvasClickAt<=copiedAt)return false;
+  const b=getBounds(o);
+  if(!b||![b.x,b.y,b.w,b.h].every(Number.isFinite))return false;
+  let nx=lastClickX-b.w/2, ny=lastClickY-b.h/2;
+  // 가능한 경우 객체 전체가 캔버스 안에 남도록 가장 가까운 위치로 보정한다.
+  if(b.w<=CW)nx=Math.max(0,Math.min(CW-b.w,nx));
+  if(b.h<=CH)ny=Math.max(0,Math.min(CH-b.h,ny));
+  translateObject(o,nx-b.x,ny-b.y);
+  return true;
+}
 function pasteClipboard(){
   if(!clip)return;
   const c=cloneEppObject(clip,{keepImage:false}); if(!c)return;
-  c.id=mkId();c.layerId=activeLayerId;delete c._copiedAt;
-  if(c.type==='stroke')c.points=(c.points||[]).map(p=>({x:p.x+20,y:p.y+20}));
-  else if(c.type==='shape'){c.x1+=20;c.y1+=20;c.x2+=20;c.y2+=20;}
-  else{c.x+=20;c.y+=20;}
+  c.id=mkId();c.layerId=activeLayerId;
+  if(!placeObjectAtLastClick(c))translateObject(c,20,20);
+  delete c._copiedAt;
   if(c.type==='image'&&c._src){
     const img=new Image();
     img.onload=()=>{c.img=img;delete c._src;objs.push(c);saveH();selObj(c.id);renderAll();refreshList();};
@@ -3282,25 +3302,21 @@ function pasteClipboard(){
   objs.push(c);saveH();selObj(c.id);renderAll();refreshList();
 }
 function duplicateSelected(){
+  // Ctrl+D / 컨텍스트 메뉴 '복제': 원본과 정확히 같은 위치에 복제한다.
   if(selIds.length>1){
     if(selIds.every(id=>!isObjEditable(objs.find(o=>o.id===id))))return;
     const newIds=[];
     selIds.forEach(id=>{
       const o=objs.find(x=>x.id===id);if(!o)return;
       const c=cloneEppObject(o,{keepImage:true});if(!c)return;c.id=mkId();
-      if(c.type==='stroke')c.points=(c.points||[]).map(p=>({x:p.x+20,y:p.y+20}));
-      else if(c.type==='shape'){c.x1+=20;c.y1+=20;c.x2+=20;c.y2+=20;}
-      else{c.x+=20;c.y+=20;}
       objs.push(c);newIds.push(c.id);
     });
+    if(!newIds.length)return;
     saveH();selIds=newIds;selId=newIds[newIds.length-1];drawSel();refreshList();renderAll();return;
   }
   if(!selId)return;
-  const o=objs.find(x=>x.id===selId);if(!o)return;
+  const o=objs.find(x=>x.id===selId);if(!o||!isObjEditable(o))return;
   const c=cloneEppObject(o,{keepImage:true});if(!c)return;c.id=mkId();
-  if(c.type==='stroke')c.points=(c.points||[]).map(p=>({x:p.x+20,y:p.y+20}));
-  else if(c.type==='shape'){c.x1+=20;c.y1+=20;c.x2+=20;c.y2+=20;}
-  else{c.x+=20;c.y+=20;}
   objs.push(c);saveH();selObj(c.id);renderAll();refreshList();
 }
 function duplicateInPlace(){
@@ -3994,7 +4010,7 @@ document.addEventListener('mousemove',e=>{
 function onDown(e){
   if(spaceKeyDown) return; // Space+드래그(캔버스 팬) 중에는 현재 도구의 동작을 실행하지 않음
   const{x,y}=getPos(e);const xi=Math.round(x),yi=Math.round(y);
-  lastClickX=xi; lastClickY=yi; // 클릭 위치 기록
+  lastClickX=xi; lastClickY=yi; lastCanvasClickAt=Date.now(); // 클릭 위치/시각 기록
 
   // ── 텍스트 도구: 캔버스 클릭 시 새 텍스트 에디터 열기
   if(tool==='text'){
