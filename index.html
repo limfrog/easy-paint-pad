@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.0.4 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.0.4 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.1 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.0.4</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.1</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -1774,76 +1774,24 @@ function dShape(c,o,hit){
   c.restore();
 }
 function dText(c,o,hit){
-  if(!o.text)return;
+  if(!o.text && !(o.richLines&&o.richLines.length))return;
   c.save();
-  const st=[];if(o.bold)st.push('bold');if(o.italic)st.push('italic');
-  // 작은 글씨는 힌팅 최적화, 큰 글씨는 기하학적 정확도 우선
-  const isSmall = o.fontSize <= 24;
-  const fontStr = `${st.join(' ')} ${o.fontSize}px ${o.fontFamily}`.trim();
-  c.font = fontStr;
-  if('fontKerning' in c) c.fontKerning = 'normal';
-  if('textRendering' in c) c.textRendering = isSmall ? 'optimizeLegibility' : 'geometricPrecision';
-  // 소수점 좌표 정수 스냅으로 서브픽셀 흐림 방지
   const tx=Math.round(o.x), ty=Math.round(o.y);
   c.globalAlpha=hit?1:(o.alpha??1);
-  const lines=o.text.split('\n');
-  const maxW=Math.max(...lines.map(l=>c.measureText(l).width),10);
-  // 줄간격은 fontSize 대비 배율로 저장한다. 기존 객체는 1.0(기존 실제 렌더 간격)으로 호환.
-  const lineH=o.fontSize*(o.lineHeight??1);
-  const textH=o.fontSize+Math.max(0,lines.length-1)*lineH;
   const pad=o.box?(o.boxPad??6):0;
-
-  if(hit){
-    c.fillStyle=id2c(o.id);
-    c.fillRect(tx-pad, ty-pad, maxW+pad*2, textH+pad*2);
-  } else {
-    if(o.box){
-      const rad=o.boxRadius??0;
-      const bw=o.boxBorder??1;
-      const bx=tx-pad, by=ty-pad, bw2=maxW+pad*2, bh2=textH+pad*2;
-      if(o.boxFill){
-        const bbg=o.boxBgColor||'#ffffff';
-        const bba=o.boxBgAlpha!=null?o.boxBgAlpha:1;
-        c.fillStyle=h2r(bbg,bba);
-        if(rad>0&&c.roundRect){c.beginPath();c.roundRect(bx,by,bw2,bh2,rad);c.fill();}
-        else c.fillRect(bx,by,bw2,bh2);
-      }
-      if(bw>0){
-        c.strokeStyle=o.color; c.lineWidth=bw;
-        if(rad>0&&c.roundRect){c.beginPath();c.roundRect(bx,by,bw2,bh2,rad);c.stroke();}
-        else c.strokeRect(bx+0.5,by+0.5,bw2-1,bh2-1);
-      }
-    }
-    c.fillStyle=o.color;
-    if(o.fontSize<=20){
-      // 작은 글씨: 2× 오버샘플링으로 선명도 향상
-      const scale=2;
-      const bounds=getBounds(o);
-      const bx=Math.floor(bounds.x)-2, by=Math.floor(bounds.y)-2;
-      const bw=Math.ceil(bounds.w)+4, bh=Math.ceil(bounds.h)+4;
-      const oc2=document.createElement('canvas');
-      oc2.width=bw*scale; oc2.height=bh*scale;
-      const ox2=oc2.getContext('2d');
-      ox2.scale(scale,scale);
-      if('fontKerning' in ox2) ox2.fontKerning='normal';
-      ox2.font=fontStr;
-      ox2.fillStyle=o.color;
-      ox2.globalAlpha=o.alpha??1;
-      lines.forEach((l,i)=>ox2.fillText(l, tx-bx, ty-by+o.fontSize+i*lineH));
-      if(o.underline)lines.forEach((l,i)=>{
-        const w=ox2.measureText(l).width;
-        ox2.fillRect(tx-bx, Math.round(ty-by+o.fontSize+i*lineH+2), w, Math.max(1,o.fontSize*.07));
-      });
-      c.globalAlpha=o.alpha??1;
-      c.drawImage(oc2, bx, by, bw, bh);
-    } else {
-      lines.forEach((l,i)=>c.fillText(l, tx, ty+o.fontSize+i*lineH));
-      if(o.underline)lines.forEach((l,i)=>{
-        const w=c.measureText(l).width;
-        c.fillRect(tx, Math.round(ty+o.fontSize+i*lineH+2), w, Math.max(1,o.fontSize*.07));
-      });
-    }
+  if(o.richLines&&o.richLines.length){
+    const mt=measureRichText(o,c);
+    if(hit){ c.fillStyle=id2c(o.id); c.fillRect(tx-pad, ty-pad, mt.maxW+pad*2, mt.totalH+pad*2); c.restore(); return; }
+    if(o.box){ const rad=o.boxRadius??0, bw=o.boxBorder??1, bx=tx-pad, by=ty-pad, bw2=mt.maxW+pad*2, bh2=mt.totalH+pad*2; if(o.boxFill){ const bbg=o.boxBgColor||'#ffffff', bba=o.boxBgAlpha!=null?o.boxBgAlpha:1; c.fillStyle=h2r(bbg,bba); if(rad>0&&c.roundRect){c.beginPath();c.roundRect(bx,by,bw2,bh2,rad);c.fill();} else c.fillRect(bx,by,bw2,bh2); } if(bw>0){ c.strokeStyle=o.color; c.lineWidth=bw; if(rad>0&&c.roundRect){c.beginPath();c.roundRect(bx,by,bw2,bh2,rad);c.stroke();} else c.strokeRect(bx+0.5,by+0.5,bw2-1,bh2-1); } }
+    mt.lines.forEach(line=>{ let cx=tx; const by=ty+line.baselineOffset; line.runs.forEach(run=>{ c.font=buildRunFont(run); if('fontKerning' in c) c.fontKerning='normal'; c.fillStyle=run.color||o.color||fgH; c.fillText(run.text||'', cx, by); const w=c.measureText(run.text||'').width; if(run.underline) c.fillRect(cx, Math.round(by+2), w, Math.max(1,(run.fontSize||fSz)*.07)); cx+=w; }); });
+    c.restore(); return;
   }
+  const st=[];if(o.bold)st.push('bold');if(o.italic)st.push('italic');
+  const isSmall=o.fontSize<=24, fontStr=`${st.join(' ')} ${o.fontSize}px ${o.fontFamily}`.trim();
+  c.font=fontStr; if('fontKerning' in c) c.fontKerning='normal'; if('textRendering' in c) c.textRendering=isSmall?'optimizeLegibility':'geometricPrecision';
+  const lines=o.text.split('\n'), maxW=Math.max(...lines.map(l=>c.measureText(l).width),10), lineH=o.fontSize*(o.lineHeight??1), textH=o.fontSize+Math.max(0,lines.length-1)*lineH;
+  if(hit){ c.fillStyle=id2c(o.id); c.fillRect(tx-pad, ty-pad, maxW+pad*2, textH+pad*2); }
+  else { if(o.box){ const rad=o.boxRadius??0, bw=o.boxBorder??1, bx=tx-pad, by=ty-pad, bw2=maxW+pad*2, bh2=textH+pad*2; if(o.boxFill){ const bbg=o.boxBgColor||'#ffffff', bba=o.boxBgAlpha!=null?o.boxBgAlpha:1; c.fillStyle=h2r(bbg,bba); if(rad>0&&c.roundRect){c.beginPath();c.roundRect(bx,by,bw2,bh2,rad);c.fill();} else c.fillRect(bx,by,bw2,bh2); } if(bw>0){ c.strokeStyle=o.color; c.lineWidth=bw; if(rad>0&&c.roundRect){c.beginPath();c.roundRect(bx,by,bw2,bh2,rad);c.stroke();} else c.strokeRect(bx+0.5,by+0.5,bw2-1,bh2-1); } } c.fillStyle=o.color; if(o.fontSize<=20){ const scale=2, bounds=getBounds(o), bx=Math.floor(bounds.x)-2, by=Math.floor(bounds.y)-2, bw=Math.ceil(bounds.w)+4, bh=Math.ceil(bounds.h)+4; const oc2=document.createElement('canvas'); oc2.width=bw*scale; oc2.height=bh*scale; const ox2=oc2.getContext('2d'); ox2.scale(scale,scale); if('fontKerning' in ox2) ox2.fontKerning='normal'; ox2.font=fontStr; ox2.fillStyle=o.color; ox2.globalAlpha=o.alpha??1; lines.forEach((l,i)=>ox2.fillText(l, tx-bx, ty-by+o.fontSize+i*lineH)); if(o.underline)lines.forEach((l,i)=>{ const w=ox2.measureText(l).width; ox2.fillRect(tx-bx, Math.round(ty-by+o.fontSize+i*lineH+2), w, Math.max(1,o.fontSize*.07)); }); c.globalAlpha=o.alpha??1; c.drawImage(oc2, bx, by, bw, bh); } else { lines.forEach((l,i)=>c.fillText(l, tx, ty+o.fontSize+i*lineH)); if(o.underline)lines.forEach((l,i)=>{ const w=c.measureText(l).width; c.fillRect(tx, Math.round(ty+o.fontSize+i*lineH+2), w, Math.max(1,o.fontSize*.07)); }); } }
   c.restore();
 }
 function dImage(c,o,hit){
@@ -1915,6 +1863,10 @@ function getBounds(o){
   }
   if(o.type==='text'){
     const pad=o.box?(o.boxPad??6):0;
+    if(o.richLines&&o.richLines.length){
+      const mt=measureRichText(o,ctx);
+      return{x:o.x-pad,y:o.y-pad,w:mt.maxW+pad*2,h:mt.totalH+pad*2};
+    }
     ctx.font=`${o.bold?'bold ':''} ${o.italic?'italic ':''} ${o.fontSize}px ${o.fontFamily}`.trim();
     const ls=(o.text||'').split('\n');
     if(o.musicSymbol&&!o.box&&ls.length===1){
@@ -1924,12 +1876,7 @@ function getBounds(o){
       const asc=Number.isFinite(mt.actualBoundingBoxAscent)?mt.actualBoundingBoxAscent:o.fontSize*.8;
       const desc=Number.isFinite(mt.actualBoundingBoxDescent)?mt.actualBoundingBoxDescent:o.fontSize*.2;
       const baseline=o.y+o.fontSize;
-      return{
-        x:o.x-left-1,
-        y:baseline-asc-1,
-        w:Math.max(8,left+right)+2,
-        h:Math.max(8,asc+desc)+2
-      };
+      return{x:o.x-left-1,y:baseline-asc-1,w:Math.max(8,left+right)+2,h:Math.max(8,asc+desc)+2};
     }
     const mw=Math.max(...ls.map(l=>ctx.measureText(l).width),20);
     const lineH=o.fontSize*(o.lineHeight??1);
@@ -2544,18 +2491,20 @@ document.getElementById('colorPickerInput').addEventListener('input',e=>{
 });
 function applyColorToSel(){
   // 텍스트 에디터가 열려있으면 에디터 색상 즉시 반영
-  if(actTed){ actTed.style.color=fgH; }
+  if(actTed){ applyEdSt(actTed); applyRichStyleToEditorSelection(actTed); }
   if(!selId)return;
   const o=objs.find(x=>x.id===selId);if(!isObjEditable(o))return;
   if(o.type==='stroke')o.color=fgH;
   else if(o.type==='shape'){
     o.strokeColor=fgH;
-    // fillColor도 shapeFill 설정에 따라 갱신
     const fm=document.getElementById('shapeFill')?.value;
     if(fm==='fg') o.fillColor=fgH;
     else if(fm==='bg') o.fillColor=bgH;
   }
-  else if(o.type==='text')o.color=fgH;
+  else if(o.type==='text'){
+    o.color=fgH;
+    if(o.richLines) applyStyleToAllRichRuns(o.richLines,{color:fgH});
+  }
   renderAll(); saveHDebounced();
 }
 
@@ -2631,7 +2580,6 @@ function updateTextStyle(){
   fSz=parseInt(document.getElementById('fontSizeInput').value)||18;
   const lhEl=document.getElementById('textLineHeight');
   if(lhEl){ const pct=parseInt(lhEl.value)||100; fLineHeight=Math.max(.7,Math.min(3,pct/100)); }
-  // box 옵션은 display:none이어도 value는 읽을 수 있음
   const bpEl=document.getElementById('boxPadding');
   const brEl=document.getElementById('boxRadius');
   const bbEl=document.getElementById('boxBorder');
@@ -2641,22 +2589,16 @@ function updateTextStyle(){
   if(bbEl){ const v=parseInt(bbEl.value); fBoxBorder=isNaN(v)?1:v; }
   if(bfEl){ fBoxFill=bfEl.checked; }
   updFontPreview();
-  // 열린 에디터에 즉시 반영
   if(actTed){
-    actTed.style.fontFamily=fFam;
-    actTed.style.fontSize=fSz+'px';
-    actTed.style.lineHeight=String(fLineHeight);
-    actTed.style.fontWeight=fBold?'bold':'normal';
-    actTed.style.fontStyle=fItal?'italic':'normal';
-    actTed.style.textDecoration=fUnder?'underline':'none';
-    actTed.style.color=fgH;
+    applyEdSt(actTed);
+    applyRichStyleToEditorSelection(actTed);
   }
-  // 선택된 텍스트 객체에 반영 (편집 중이 아닐 때만)
   if(selId&&!actTed){
     const o=objs.find(x=>x.id===selId);
     if(isObjEditable(o)&&o.type==='text'){
       o.fontFamily=fFam; o.fontSize=fSz; o.lineHeight=fLineHeight; o.bold=fBold; o.italic=fItal; o.underline=fUnder;
       o.box=fBox; o.boxPad=fBoxPad; o.boxRadius=fBoxRadius; o.boxBorder=fBoxBorder; o.boxFill=fBoxFill; if(o.boxFill&&!o.boxBgColor)o.boxBgColor=bgH;
+      if(o.richLines) applyStyleToAllRichRuns(o.richLines,{fontFamily:fFam,fontSize:fSz,bold:fBold,italic:fItal,underline:fUnder,color:fgH});
       renderAll(); saveHDebounced();
     }
   }
@@ -2665,6 +2607,7 @@ function applyEdSt(el){
   el.style.fontFamily=fFam;el.style.fontSize=fSz+'px';el.style.lineHeight=String(fLineHeight);
   el.style.fontWeight=fBold?'bold':'normal';el.style.fontStyle=fItal?'italic':'normal';
   el.style.textDecoration=fUnder?'underline':'none';el.style.color=fgH;
+  el.style.whiteSpace='pre-wrap';
 }
 function setLineHeightPct(v){
   const pct=Math.max(70,Math.min(300,Math.round(Number(v)||100)));
@@ -2782,32 +2725,150 @@ function applyShapeFill(){
   }
 }
 
+function escHtml(s){return String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+function normalizeFF(v){return normalizeFontFamily(v||'Noto Sans KR');}
+function cssToHex(v){
+  if(!v) return fgH;
+  if(v.startsWith('#')) return v;
+  const m=v.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  if(!m) return fgH;
+  return '#'+[m[1],m[2],m[3]].map(x=>Number(x).toString(16).padStart(2,'0')).join('');
+}
+function buildRunFont(run){
+  const st=[]; if(run.bold) st.push('bold'); if(run.italic) st.push('italic');
+  return `${st.join(' ')} ${Math.max(6,run.fontSize||fSz)}px ${normalizeFF(run.fontFamily||fFam)}`.trim();
+}
+function getRichLines(o){
+  if(Array.isArray(o.richLines)&&o.richLines.length) return o.richLines;
+  return String(o.text||'').split('\n').map(line=>[{text:line,fontFamily:o.fontFamily||fFam,fontSize:o.fontSize||fSz,bold:!!o.bold,italic:!!o.italic,underline:!!o.underline,color:o.color||fgH}]);
+}
+function applyStyleToAllRichRuns(lines, style){ (lines||[]).forEach(line=>line.forEach(run=>Object.assign(run, style))); }
+function richLinesPlainText(lines){ return (lines||[]).map(line=>line.map(run=>run.text||'').join('')).join('\n'); }
+function richLinesToHTML(o){
+  const lines=getRichLines(o);
+  return lines.map(line=>{ if(!line.length) return '<br>'; return line.map(run=>`<span style="font-family:${normalizeFF(run.fontFamily||o.fontFamily||fFam)};font-size:${Math.max(6,run.fontSize||o.fontSize||fSz)}px;font-weight:${run.bold?'bold':'normal'};font-style:${run.italic?'italic':'normal'};text-decoration:${run.underline?'underline':'none'};color:${run.color||o.color||fgH}">${escHtml(run.text||'')}</span>`).join(''); }).join('<br>');
+}
+function editorSelectionInside(ed){ const sel=window.getSelection(); return !!(sel&&sel.rangeCount&&ed&&ed.contains(sel.anchorNode)&&ed.contains(sel.focusNode)); }
+function nodeInsideEditor(ed,node){ return !!(ed&&node&&(node===ed||ed.contains(node))); }
+function rememberEditorSelection(){
+  if(!actTed)return;
+  const sel=window.getSelection();
+  if(sel&&sel.rangeCount&&nodeInsideEditor(actTed,sel.anchorNode)&&nodeInsideEditor(actTed,sel.focusNode)){
+    try{actTed._savedRange=sel.getRangeAt(0).cloneRange();}catch(_){ }
+  }
+}
+document.addEventListener('selectionchange',rememberEditorSelection);
+function getEditorRange(ed){
+  const sel=window.getSelection();
+  if(sel&&sel.rangeCount&&nodeInsideEditor(ed,sel.anchorNode)&&nodeInsideEditor(ed,sel.focusNode)) return sel.getRangeAt(0);
+  const r=ed?._savedRange;
+  if(r&&nodeInsideEditor(ed,r.startContainer)&&nodeInsideEditor(ed,r.endContainer)) return r.cloneRange();
+  return null;
+}
+function restoreEditorRange(ed,range){
+  if(!ed||!range)return;
+  try{
+    const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    ed._savedRange=range.cloneRange();
+  }catch(_){ }
+}
+function applyRichStyleToEditorSelection(ed){
+  if(!ed)return false;
+  const range=getEditorRange(ed); if(!range||range.collapsed) return false;
+  const span=document.createElement('span');
+  span.style.fontFamily=normalizeFF(fFam); span.style.fontSize=fSz+'px'; span.style.fontWeight=fBold?'bold':'normal'; span.style.fontStyle=fItal?'italic':'normal'; span.style.textDecoration=fUnder?'underline':'none'; span.style.color=fgH;
+  const frag=range.extractContents(); span.appendChild(frag); range.insertNode(span);
+  const nr=document.createRange(); nr.selectNodeContents(span); restoreEditorRange(ed,nr); ed.normalize();
+  return true;
+}
+function insertLineBreakAtSelection(){
+  const ed=actTed, range=getEditorRange(ed); if(!range)return;
+  range.deleteContents(); const br=document.createElement('br'); range.insertNode(br); range.setStartAfter(br); range.collapse(true); restoreEditorRange(ed,range);
+}
+function insertFragmentIntoEditor(ed,frag){
+  const range=getEditorRange(ed); if(!range)return false;
+  range.deleteContents(); const last=frag.lastChild; range.insertNode(frag);
+  const nr=document.createRange();
+  if(last&&last.parentNode){nr.setStartAfter(last);}else{nr.selectNodeContents(ed);nr.collapse(false);}
+  nr.collapse(true); restoreEditorRange(ed,nr); return true;
+}
+function sanitizeRichClipboardHtml(html){
+  const src=document.createElement('div'); src.innerHTML=html||'';
+  const out=document.createDocumentFragment();
+  const appendNode=(node,parent)=>{
+    if(node.nodeType===3){parent.appendChild(document.createTextNode(node.nodeValue||''));return;}
+    if(node.nodeType!==1)return;
+    const tag=node.tagName;
+    if(tag==='BR'){parent.appendChild(document.createElement('br'));return;}
+    const isBlock=tag==='DIV'||tag==='P'||tag==='LI';
+    const span=document.createElement('span');
+    const st=node.style||{};
+    if(st.fontFamily)span.style.fontFamily=st.fontFamily;
+    if(st.fontSize)span.style.fontSize=st.fontSize;
+    if(st.color)span.style.color=st.color;
+    if(st.fontWeight)span.style.fontWeight=st.fontWeight;
+    else if(tag==='B'||tag==='STRONG')span.style.fontWeight='bold';
+    if(st.fontStyle)span.style.fontStyle=st.fontStyle;
+    else if(tag==='I'||tag==='EM')span.style.fontStyle='italic';
+    if(st.textDecoration||st.textDecorationLine)span.style.textDecoration=st.textDecoration||st.textDecorationLine;
+    else if(tag==='U')span.style.textDecoration='underline';
+    Array.from(node.childNodes).forEach(ch=>appendNode(ch,span));
+    if(span.childNodes.length)parent.appendChild(span);
+    if(isBlock&&node.nextSibling)parent.appendChild(document.createElement('br'));
+  };
+  Array.from(src.childNodes).forEach(ch=>appendNode(ch,out));
+  return out;
+}
+function plainTextToFragment(txt){
+  const frag=document.createDocumentFragment();
+  String(txt||'').split(/\r?\n/).forEach((line,i)=>{if(i)frag.appendChild(document.createElement('br'));frag.appendChild(document.createTextNode(line));});
+  return frag;
+}
+function handleRichEditorPaste(ed,e){
+  if(!ed||!e.clipboardData)return false;
+  const html=e.clipboardData.getData('text/html');
+  const plain=e.clipboardData.getData('text/plain');
+  if(!html&&!plain)return false;
+  e.preventDefault();
+  const frag=html?sanitizeRichClipboardHtml(html):plainTextToFragment(plain);
+  insertFragmentIntoEditor(ed,frag);
+  return true;
+}
+function collectRichLinesFromEditor(ed){
+  const baseStyle={fontFamily:normalizeFF(ed.style.fontFamily||fFam),fontSize:Math.max(6,Math.round(parseFloat(ed.style.fontSize)||fSz)),bold:fBold,italic:fItal,underline:fUnder,color:cssToHex(ed.style.color||fgH)};
+  const lines=[[]], cur=()=>lines[lines.length-1];
+  const same=(a,b)=>a&&b&&a.fontFamily===b.fontFamily&&a.fontSize===b.fontSize&&a.bold===b.bold&&a.italic===b.italic&&a.underline===b.underline&&a.color===b.color;
+  const pushText=(style,txt)=>{ if(!txt) return; const parts=String(txt).split('\n'); parts.forEach((part,idx)=>{ if(part){ const run={text:part,fontFamily:normalizeFF(style.fontFamily),fontSize:Math.max(6,Math.round(style.fontSize||fSz)),bold:!!style.bold,italic:!!style.italic,underline:!!style.underline,color:style.color||fgH}; const line=cur(), prev=line[line.length-1]; if(prev&&same(prev,run)) prev.text+=run.text; else line.push(run);} if(idx<parts.length-1) lines.push([]); }); };
+  const walk=(node,inherit)=>{ if(node.nodeType===3){ pushText(inherit,node.nodeValue||''); return; } if(node.nodeType!==1) return; const tag=node.tagName; if(tag==='BR'){ lines.push([]); return; } const cs=getComputedStyle(node); const next={fontFamily:normalizeFF(cs.fontFamily||inherit.fontFamily),fontSize:Math.max(6,Math.round(parseFloat(cs.fontSize)||inherit.fontSize||fSz)),bold:(parseInt(cs.fontWeight)||0)>=600 || /bold/i.test(cs.fontWeight||''),italic:/italic|oblique/i.test(cs.fontStyle||''),underline:(cs.textDecorationLine||cs.textDecoration||'').includes('underline'),color:cssToHex(cs.color||inherit.color||fgH)}; const isBlock=(tag==='DIV'||tag==='P'); Array.from(node.childNodes).forEach(ch=>walk(ch,next)); if(isBlock&&node.nextSibling) lines.push([]); };
+  Array.from(ed.childNodes).forEach(ch=>walk(ch,baseStyle)); while(lines.length>1 && lines[lines.length-1].length===0) lines.pop(); return lines;
+}
+function measureRichText(o, c=ctx){
+  const lines=getRichLines(o); const layout=[]; let totalH=0, maxW=10; const lhMul=o.lineHeight??1;
+  lines.forEach(line=>{ let width=0, asc=0, desc=0, maxFont=0; if(!line.length){ maxFont=o.fontSize||fSz; asc=maxFont*0.8; desc=maxFont*0.2; } line.forEach(run=>{ c.save(); c.font=buildRunFont(run); const mt=c.measureText(run.text||' '); width += mt.width; asc=Math.max(asc, mt.actualBoundingBoxAscent||((run.fontSize||fSz)*0.8)); desc=Math.max(desc, mt.actualBoundingBoxDescent||((run.fontSize||fSz)*0.2)); maxFont=Math.max(maxFont, run.fontSize||fSz); c.restore(); }); const lineHeightPx=Math.max(asc+desc, maxFont*lhMul); layout.push({runs:line,width,asc,desc,maxFont,topOffset:totalH,baselineOffset:totalH+asc,lineHeightPx}); totalH += lineHeightPx; maxW=Math.max(maxW,width); });
+  return {lines:layout,maxW,totalH:Math.max(totalH,(o.fontSize||fSz))};
+}
+
 // ════════════ TEXT EDITOR ════════════
 function openTed(x,y,exist=null){
   if(exist&&!isObjEditable(exist)) return;
   if(isLayerLocked(activeLayerId)&&!exist) return;
   commitT();
-  const ed=document.createElement('textarea');
+  const ed=document.createElement('div');
   ed.className='canvas-text-editor';
-  ed.style.cssText=`position:absolute;left:${x}px;top:${y}px;`; // 인라인으로 강제
+  ed.contentEditable='true';
+  ed.style.cssText=`position:absolute;left:${x}px;top:${y}px;`;
   ed.spellcheck=false;
   ed.autocorrect='off'; ed.autocapitalize='off';
   ed.setAttribute('autocorrect','off'); ed.setAttribute('autocapitalize','off');
   ed._x=x; ed._y=y; ed._oid=null; ed._savedObj=null; ed._savedIdx=null;
-
   if(exist){
-    // 기존 텍스트 편집: objs에서 제거해 캔버스 잔상 방지
     const idx=objs.findIndex(o=>o.id===exist.id);
-    if(idx>-1){
-      ed._savedObj=objs.splice(idx,1)[0];
-      ed._savedIdx=idx; // 원래 위치 저장
-      ed._oid=exist.id;
-    }
-    ed.value=exist.text||'';
+    if(idx>-1){ ed._savedObj=objs.splice(idx,1)[0]; ed._savedIdx=idx; ed._oid=exist.id; }
+    ed.innerHTML=richLinesToHTML(exist);
     if(exist._edW) ed.style.width=exist._edW+'px';
     if(exist._edH) ed.style.height=exist._edH+'px';
     if(exist.fontFamily){ fFam=exist.fontFamily; document.getElementById('fontFamily').value=fFam; }
-    if(exist.fontSize)  { fSz=exist.fontSize;    document.getElementById('fontSizeInput').value=fSz; syncFontSizeUI(fSz); }
+    if(exist.fontSize){ fSz=exist.fontSize; document.getElementById('fontSizeInput').value=fSz; syncFontSizeUI(fSz); }
     fLineHeight=exist.lineHeight??1;
     const lhPct=Math.max(70,Math.min(300,Math.round(fLineHeight*100)));
     document.getElementById('textLineHeight').value=lhPct; document.getElementById('lineHeightDisplay').textContent=lhPct;
@@ -2822,85 +2883,36 @@ function openTed(x,y,exist=null){
     document.getElementById('btn-underline').classList.toggle('active',fUnder);
     document.getElementById('btn-box').classList.toggle('active',fBox);
     const bo=document.getElementById('box-options'); if(bo) bo.style.display=fBox?'flex':'none';
+  } else {
+    ed.innerHTML='';
   }
-
-  ed.style.fontFamily=fFam; ed.style.fontSize=fSz+'px';
-  ed.style.fontWeight=fBold?'bold':'normal';
-  ed.style.fontStyle=fItal?'italic':'normal';
-  ed.style.textDecoration=fUnder?'underline':'none';
-  ed.style.color=fgH;
-  // canvas-text-editor 클래스 스타일 명시적 재적용 (cssText 덮어쓰기 방지)
-  ed.style.position='absolute';
-  ed.style.left=x+'px'; ed.style.top=y+'px';
-  ed.style.border='1.5px dashed var(--accent)';
-  ed.style.outline='none'; ed.style.resize='both'; ed.style.zIndex='50';
-  ed.style.minWidth='80px'; ed.style.minHeight='28px';
-  ed.style.padding='2px 4px'; ed.style.lineHeight=String(fLineHeight);
-  ed.style.whiteSpace='pre'; ed.style.overflow='hidden';
-  ed.style.boxSizing='border-box'; ed.style.background='transparent';
-
-  TO.style.pointerEvents='auto';
-  TO.appendChild(ed);
-  actTed=ed;
-  editingId=null; // objs에서 이미 제거했으므로 editingId 불필요
-  renderAll();    // 제거된 상태로 렌더 (잔상 없음)
-  setTimeout(()=>ed.focus(),0);
-  ed.addEventListener('keydown',e=>{
-    if(e.key==='Escape'){ e.preventDefault(); commitT(); }
-    if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ e.preventDefault(); commitT(); }
-  });
+  applyEdSt(ed);
+  ed.style.position='absolute'; ed.style.left=x+'px'; ed.style.top=y+'px'; ed.style.border='1.5px dashed var(--accent)';
+  ed.style.outline='none'; ed.style.resize='both'; ed.style.zIndex='50'; ed.style.minWidth='80px'; ed.style.minHeight='28px';
+  ed.style.padding='2px 4px'; ed.style.overflow='auto'; ed.style.boxSizing='border-box'; ed.style.background='transparent';
+  TO.style.pointerEvents='auto'; TO.appendChild(ed); actTed=ed; editingId=null; renderAll();
+  setTimeout(()=>{ ed.focus(); const sel=window.getSelection(); if(sel){ const r=document.createRange(); r.selectNodeContents(ed); r.collapse(false); sel.removeAllRanges(); sel.addRange(r); } },0);
+  ed.addEventListener('keydown',e=>{ if(e.key==='Escape'){ e.preventDefault(); commitT(); } if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ e.preventDefault(); commitT(); } if(e.key==='Enter'&&!e.ctrlKey&&!e.metaKey){ e.preventDefault(); insertLineBreakAtSelection(); } });
+  ed.addEventListener('paste',e=>handleRichEditorPaste(ed,e));
+  ed.addEventListener('mouseup',rememberEditorSelection);
+  ed.addEventListener('keyup',rememberEditorSelection);
+  ed.addEventListener('touchend',()=>setTimeout(rememberEditorSelection,0));
 }
 
 function commitT(){
   if(!actTed)return;
-  const ed=actTed;
-  actTed=null;
-  editingId=null;
-  TO.style.pointerEvents='none';
-
-  const edW=Math.max(80,ed.offsetWidth);
-  const edH=Math.max(28,ed.offsetHeight);
+  const ed=actTed; actTed=null; editingId=null; TO.style.pointerEvents='none';
+  const edW=Math.max(80,ed.offsetWidth), edH=Math.max(28,ed.offsetHeight);
   if(TO.contains(ed)) TO.removeChild(ed);
-
-  const val=ed.value; // trim 제거: 앞뒤 공백 보존
-  if(!val || !val.trim()){
-    // 빈 텍스트: 보관한 객체를 원래 위치에 복원
-    if(ed._savedObj){
-      const insertAt=ed._savedIdx!=null?Math.min(ed._savedIdx,objs.length):objs.length;
-      objs.splice(insertAt,0,ed._savedObj);
-    }
+  const richLines=collectRichLinesFromEditor(ed); const plainText=richLinesPlainText(richLines);
+  if(!plainText || !plainText.trim()){
+    if(ed._savedObj){ const insertAt=ed._savedIdx!=null?Math.min(ed._savedIdx,objs.length):objs.length; objs.splice(insertAt,0,ed._savedObj); }
     renderAll(); return;
   }
-
-  const props={
-    fontFamily:fFam, fontSize:fSz, lineHeight:fLineHeight,
-    bold:fBold, italic:fItal, underline:fUnder,
-    color:fgH, alpha:fgA, _edW:edW, _edH:edH,
-    box:fBox, boxPad:fBoxPad, boxRadius:fBoxRadius, boxBorder:fBoxBorder, boxFill:fBoxFill,
-    boxBgColor:fBoxFill?bgH:'', boxBgAlpha:fBoxFill?bgA:1
-  };
-
-  if(ed._savedObj){
-    // 기존 객체 업데이트 후 objs에 원래 위치에 삽입
-    const o=Object.assign(ed._savedObj, props);
-    o.text=val;
-    // 원래 인덱스 위치에 복원 (없으면 맨 뒤)
-    const insertAt=ed._savedIdx!=null?Math.min(ed._savedIdx,objs.length):objs.length;
-    objs.splice(insertAt,0,o);
-    selId=o.id;
-  } else {
-    // 새 텍스트 객체 추가
-    const newObj=Object.assign({id:mkId(),type:'text',x:ed._x,y:ed._y,text:val,layerId:activeLayerId},props);
-    objs.push(newObj);
-    selId=newObj.id;
-  }
-
-  saveH();
-  tool='select2';
-  document.querySelectorAll('[id^="tool-"]').forEach(b=>b.classList.remove('active'));
-  document.querySelectorAll('#tool-select2').forEach(b=>b.classList.add('active'));
-  HC.style.cursor='default';
-  document.getElementById('statusTool').textContent='도구: 선택/이동';
+  const props={fontFamily:fFam,fontSize:fSz,lineHeight:fLineHeight,bold:fBold,italic:fItal,underline:fUnder,color:fgH,alpha:fgA,_edW:edW,_edH:edH,box:fBox,boxPad:fBoxPad,boxRadius:fBoxRadius,boxBorder:fBoxBorder,boxFill:fBoxFill,boxBgColor:fBoxFill?bgH:'',boxBgAlpha:fBoxFill?bgA:1,richLines:richLines};
+  if(ed._savedObj){ const o=Object.assign(ed._savedObj, props); o.text=plainText; const insertAt=ed._savedIdx!=null?Math.min(ed._savedIdx,objs.length):objs.length; objs.splice(insertAt,0,o); selId=o.id; }
+  else { const newObj=Object.assign({id:mkId(),type:'text',x:ed._x,y:ed._y,text:plainText,layerId:activeLayerId},props); objs.push(newObj); selId=newObj.id; }
+  saveH(); tool='select2'; document.querySelectorAll('[id^="tool-"]').forEach(b=>b.classList.remove('active')); document.querySelectorAll('#tool-select2').forEach(b=>b.classList.add('active')); HC.style.cursor='default'; document.getElementById('statusTool').textContent='도구: 선택/이동';
 }
 
 // ════════════ ERASER (실제 픽셀 삭제) ════════════
@@ -3028,70 +3040,85 @@ function moveO(o,dx,dy){
 }
 
 // ════════════ COPY / PASTE / DUPLICATE / LAYER ════════════
+function normalizeRichTextObject(o){
+  if(!o||o.type!=='text')return o;
+  if(Array.isArray(o.richLines)){
+    o.richLines=o.richLines.map(line=>Array.isArray(line)?line.map(run=>({
+      text:String(run?.text??''),
+      fontFamily:normalizeFF(run?.fontFamily||o.fontFamily||fFam),
+      fontSize:Math.max(6,Number(run?.fontSize)||o.fontSize||fSz),
+      bold:!!run?.bold,italic:!!run?.italic,underline:!!run?.underline,
+      color:run?.color||o.color||fgH
+    })):[]);
+    o.text=richLinesPlainText(o.richLines);
+  }
+  return o;
+}
+function cloneEppObject(o,{keepImage=false}={}){
+  if(!o)return null;
+  const raw={...o}; const imageObj=raw.img; delete raw.img;
+  let c;
+  try{c=typeof structuredClone==='function'?structuredClone(raw):JSON.parse(JSON.stringify(raw));}
+  catch(_){c=JSON.parse(JSON.stringify(raw));}
+  normalizeRichTextObject(c);
+  if(c.type==='image'){
+    if(keepImage&&imageObj)c.img=imageObj;
+    else if(!c._src&&imageObj?.src)c._src=imageObj.src;
+  }
+  return c;
+}
+function setObjectClipboard(o,copiedAt=Date.now()){
+  const c=cloneEppObject(o,{keepImage:false}); if(!c)return false;
+  c._copiedAt=copiedAt; clip=c; pixelClip=null; lastCopyType='object'; return true;
+}
 function copySelected(){
   if(!selId)return;
   const o=objs.find(x=>x.id===selId);
-  if(o){
-    clip=JSON.parse(JSON.stringify(o));
-    if(clip.type==='image'){
-      if(o.img?.src) clip._src=o.img.src;
-      delete clip.img;
-    }
-    clip._copiedAt=Date.now(); // 복사 시각 기록
-    pixelClip=null;
-    lastCopyType='object';
-    // 시스템 클립보드에도 기록 (다른 탭에서 붙여넣기 가능하도록)
-    const payload=JSON.stringify({_eppClip:true, obj:clip, copiedAt:clip._copiedAt});
-    navigator.clipboard?.writeText(payload).catch(()=>{});
-  }
+  if(!o||!setObjectClipboard(o))return;
+  const payload=JSON.stringify({_eppClip:true,version:2,obj:clip,copiedAt:clip._copiedAt});
+  navigator.clipboard?.writeText(payload).catch(()=>{});
 }
 function pasteClipboard(){
   if(!clip)return;
-  const c=JSON.parse(JSON.stringify(clip));c.id=mkId();c.layerId=activeLayerId;
-  if(c.type==='stroke')c.points=c.points.map(p=>({x:p.x+20,y:p.y+20}));
+  const c=cloneEppObject(clip,{keepImage:false}); if(!c)return;
+  c.id=mkId();c.layerId=activeLayerId;delete c._copiedAt;
+  if(c.type==='stroke')c.points=(c.points||[]).map(p=>({x:p.x+20,y:p.y+20}));
   else if(c.type==='shape'){c.x1+=20;c.y1+=20;c.x2+=20;c.y2+=20;}
   else{c.x+=20;c.y+=20;}
   if(c.type==='image'&&c._src){
     const img=new Image();
-    img.onload=()=>{ c.img=img; delete c._src; objs.push(c); saveH(); selObj(c.id); renderAll(); refreshList(); };
-    img.src=c._src;
-    return;
+    img.onload=()=>{c.img=img;delete c._src;objs.push(c);saveH();selObj(c.id);renderAll();refreshList();};
+    img.src=c._src;return;
   }
-  objs.push(c);saveH();selObj(c.id);
+  objs.push(c);saveH();selObj(c.id);renderAll();refreshList();
 }
 function duplicateSelected(){
   if(selIds.length>1){
     if(selIds.every(id=>!isObjEditable(objs.find(o=>o.id===id))))return;
     const newIds=[];
     selIds.forEach(id=>{
-      const o=objs.find(x=>x.id===id);
-      if(!o)return;
-      const c=JSON.parse(JSON.stringify(o));c.id=mkId();
-      if(c.type==='stroke')c.points=c.points.map(p=>({x:p.x+20,y:p.y+20}));
+      const o=objs.find(x=>x.id===id);if(!o)return;
+      const c=cloneEppObject(o,{keepImage:true});if(!c)return;c.id=mkId();
+      if(c.type==='stroke')c.points=(c.points||[]).map(p=>({x:p.x+20,y:p.y+20}));
       else if(c.type==='shape'){c.x1+=20;c.y1+=20;c.x2+=20;c.y2+=20;}
       else{c.x+=20;c.y+=20;}
-      if(c.type==='image'&&o.img)c.img=o.img;
-      objs.push(c);
-      newIds.push(c.id);
+      objs.push(c);newIds.push(c.id);
     });
-    saveH();
-    selIds=newIds;selId=newIds[newIds.length-1];
-    drawSel();refreshList();
-    return;
+    saveH();selIds=newIds;selId=newIds[newIds.length-1];drawSel();refreshList();renderAll();return;
   }
-  copySelected();pasteClipboard();
+  if(!selId)return;
+  const o=objs.find(x=>x.id===selId);if(!o)return;
+  const c=cloneEppObject(o,{keepImage:true});if(!c)return;c.id=mkId();
+  if(c.type==='stroke')c.points=(c.points||[]).map(p=>({x:p.x+20,y:p.y+20}));
+  else if(c.type==='shape'){c.x1+=20;c.y1+=20;c.x2+=20;c.y2+=20;}
+  else{c.x+=20;c.y+=20;}
+  objs.push(c);saveH();selObj(c.id);renderAll();refreshList();
 }
 function duplicateInPlace(){
-  // Ctrl+드래그용: 오프셋 없이 같은 위치에 복제
   if(!selId)return;
-  const o=objs.find(x=>x.id===selId);
-  if(!isObjEditable(o))return;
-  const c=JSON.parse(JSON.stringify(o));
-  c.id=mkId();
-  if(c.type==='image'&&o.img) c.img=o.img; // img 객체 공유
-  objs.push(c);
-  selId=c.id; // 새 객체를 선택
-  refreshList();
+  const o=objs.find(x=>x.id===selId);if(!isObjEditable(o))return;
+  const c=cloneEppObject(o,{keepImage:true});if(!c)return;c.id=mkId();
+  objs.push(c);selId=c.id;refreshList();
 }
 // ── 범위 선택에서 실제 편집 가능한 픽셀 객체만 수집
 // 숨김 레이어 / 잠긴 레이어 / 개별 잠금 객체는 범위 선택의 복사·이동·삭제 대상에서 제외한다.
@@ -3266,14 +3293,10 @@ async function trySmartPaste(){
               if(parsed._eppClip&&parsed.obj){
                 sysTextTime=parsed.copiedAt||0;
                 const internalTime=clip?._copiedAt||0;
-                // 시스템 클립보드가 더 최신이면 그것을 사용
-                if(sysTextTime>internalTime){
-                  clip=parsed.obj;
-                  clip._copiedAt=sysTextTime;
-                  lastCopyType='object';
-                  pixelClip=null;
+                if(sysTextTime>=internalTime){
+                  const incoming=cloneEppObject(parsed.obj,{keepImage:false});
+                  if(incoming){incoming._copiedAt=sysTextTime||Date.now();clip=incoming;lastCopyType='object';pixelClip=null;}
                 }
-                // 어느 쪽이든 객체 붙여넣기
                 pasteClipboard();
                 return;
               }
@@ -3515,13 +3538,14 @@ function selObj(id){
   if(o){
     if(o.strokeWidth)setStrokeUI(o.strokeWidth);
     if(o.type==='text'){
-      document.getElementById('fontFamily').value=o.fontFamily||'sans-serif';
-      document.getElementById('fontSizeInput').value=o.fontSize||18; syncFontSizeUI(o.fontSize||18);
-      fFam=o.fontFamily||'sans-serif';fSz=o.fontSize||18;fLineHeight=o.lineHeight??1;
+      const firstRun=(o.richLines&&o.richLines.find(line=>line&&line.length)?.[0])||null;
+      document.getElementById('fontFamily').value=(firstRun?.fontFamily)||o.fontFamily||'sans-serif';
+      document.getElementById('fontSizeInput').value=(firstRun?.fontSize)||o.fontSize||18; syncFontSizeUI((firstRun?.fontSize)||o.fontSize||18);
+      fFam=(firstRun?.fontFamily)||o.fontFamily||'sans-serif';fSz=(firstRun?.fontSize)||o.fontSize||18;fLineHeight=o.lineHeight??1;
       const lhPct=Math.max(70,Math.min(300,Math.round(fLineHeight*100)));
       const lhEl=document.getElementById('textLineHeight');if(lhEl)lhEl.value=lhPct;
       const lhDisp=document.getElementById('lineHeightDisplay');if(lhDisp)lhDisp.textContent=lhPct;
-      fBold=!!o.bold;fItal=!!o.italic;fUnder=!!o.underline;
+      fBold=firstRun?!!firstRun.bold:!!o.bold;fItal=firstRun?!!firstRun.italic:!!o.italic;fUnder=firstRun?!!firstRun.underline:!!o.underline;
       fBox=!!o.box;
       fBoxPad=o.boxPad??6;fBoxRadius=o.boxRadius??0;fBoxBorder=o.boxBorder??1;fBoxFill=!!o.boxFill;
       fBoxBgColor=o.boxBgColor||''; fBoxBgAlpha=o.boxBgAlpha!=null?o.boxBgAlpha:1;
@@ -4721,8 +4745,20 @@ document.addEventListener('keydown', e=>{
 
 // ════════════ 클립보드 이미지 붙여넣기 ════════════
 document.addEventListener('paste', e=>{
-  // 텍스트 에디터가 열려 있으면 기본 동작 유지
+  // 텍스트 에디터는 자체 rich-text paste 처리
   if(actTed) return;
+  const plain=e.clipboardData?.getData('text/plain')||'';
+  if(plain){
+    try{
+      const parsed=JSON.parse(plain);
+      if(parsed?._eppClip&&parsed.obj){
+        e.preventDefault();
+        const incoming=cloneEppObject(parsed.obj,{keepImage:false});
+        if(incoming){incoming._copiedAt=parsed.copiedAt||Date.now();clip=incoming;lastCopyType='object';pixelClip=null;pasteClipboard();}
+        return;
+      }
+    }catch(_){ }
+  }
   const items = e.clipboardData?.items;
   if(!items) return;
   for(const item of items){
