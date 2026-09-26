@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.9 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.10 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.1.9 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.1.10 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.1.9</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.1.10</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -4636,9 +4636,16 @@ function printCanvas(){
   const canvas=flatten();
   const dataUrl=canvas.toDataURL('image/png');
 
-  // v2.1.9: 모바일/PWA에서는 새 창(window.open)이 iOS/Android의 팝업 정책과
-  // standalone WebView에서 불안정하다. 현재 문서에 print-only 이미지를 잠깐 올리고
-  // 같은 창에서 window.print()를 호출하면 AirPrint/Android 인쇄 대화상자가 훨씬 안정적이다.
+  // v2.1.10: iOS/iPadOS의 Safari/Chrome/PWA는 window.print()가 사용자 제스처에서
+  // 벗어나 호출되거나 standalone WebView에서 호출될 때 아무 반응 없이 무시될 수 있다.
+  // iOS에서는 Web Share를 같은 클릭 흐름 안에서 즉시 호출해 시스템 공유 시트를 열고,
+  // 사용자가 '프린트'를 선택하도록 한다. 이 방식이 iPhone PWA에서도 가장 안정적이다.
+  if(isIOSPrintDevice()){
+    printCanvasIOS(dataUrl);
+    return;
+  }
+
+  // Android 등 다른 모바일은 같은 문서에서 동기적으로 print()를 호출한다.
   if(isMobileExportDevice()){
     printCanvasMobile(dataUrl);
     return;
@@ -4671,6 +4678,50 @@ function printCanvas(){
   </div>
 </body></html>`);
   w.document.close();
+}
+
+function isIOSPrintDevice(){
+  const ua=navigator.userAgent||'';
+  const platform=navigator.platform||'';
+  // iPadOS는 데스크톱 사이트 요청 시 MacIntel로 보일 수 있다.
+  return /iPhone|iPad|iPod/i.test(ua) ||
+         (platform==='MacIntel' && (navigator.maxTouchPoints||0)>1);
+}
+
+function printCanvasIOS(dataUrl){
+  // 중요: navigator.share()는 반드시 인쇄 버튼의 사용자 제스처가 살아있는
+  // 같은 JS 태스크에서 호출한다. requestAnimationFrame/setTimeout/onload를 거치지 않는다.
+  try{
+    if(navigator.share){
+      const blob=dataUrlToBlob(dataUrl);
+      const name=((curFile||'untitled').replace(/\.[^.]+$/,'')||'untitled')+'-print.png';
+      let file=null;
+      try{ file=new File([blob],name,{type:'image/png',lastModified:Date.now()}); }catch(_){}
+      if(file){
+        const payload={files:[file],title:'Easy Paint Pad 인쇄 - 공유 메뉴에서 프린트 선택'};
+        let canShare=true;
+        try{ if(navigator.canShare) canShare=navigator.canShare(payload); }catch(_){ canShare=false; }
+        if(canShare){
+          // await를 사용하지 않아 호출 자체는 현재 클릭 이벤트 안에서 즉시 실행된다.
+          const result=navigator.share(payload);
+          if(result&&typeof result.catch==='function'){
+            result.catch(err=>{
+              if(err && (err.name==='AbortError'||err.name==='NotAllowedError')) return;
+              console.warn('iOS 인쇄 공유 시트 열기 실패:',err);
+              alert('공유 메뉴를 열 수 없습니다. Safari에서 다시 시도하거나 이미지를 저장한 뒤 공유 메뉴의 프린트를 사용해주세요.');
+            });
+          }
+          return;
+        }
+      }
+    }
+  }catch(err){
+    console.warn('iOS Web Share 인쇄 경로 실패:',err);
+  }
+
+  // Web Share가 없는 구형/제한 브라우저는 사용자 제스처가 유지된 상태에서
+  // 동기적으로 print()를 호출한다.
+  printCanvasMobile(dataUrl);
 }
 
 function printCanvasMobile(dataUrl){
@@ -4713,35 +4764,23 @@ function printCanvasMobile(dataUrl){
   };
   window.addEventListener('afterprint',cleanup,{once:true});
 
-  const doPrint=()=>{
-    try{
-      if(typeof window.print==='function'){
-        // 렌더 트리를 한 프레임 확정한 뒤 같은 탭에서 인쇄 호출
-        requestAnimationFrame(()=>{
-          try{ window.print(); }
-          catch(err){ mobilePrintShareFallback(dataUrl,cleanup); return; }
-          // iOS 일부 버전은 afterprint를 보내지 않으므로 반환 후 안전 정리
-          setTimeout(cleanup,1500);
-        });
-      }else{
-        mobilePrintShareFallback(dataUrl,cleanup);
-      }
-    }catch(err){
+  try{
+    if(typeof window.print==='function'){
+      // v2.1.10: 사용자 제스처를 잃지 않도록 RAF/onload를 거치지 않고 즉시 호출.
+      window.print();
+      // 일부 모바일 브라우저는 afterprint를 보내지 않으므로 나중에 안전 정리.
+      setTimeout(cleanup,3000);
+    }else{
       mobilePrintShareFallback(dataUrl,cleanup);
     }
-  };
-
-  // data URL은 대체로 즉시 로드되지만, 이미지 디코딩 완료 후 인쇄하면 빈 페이지를 방지할 수 있다.
-  if(img.complete){ doPrint(); }
-  else{
-    img.onload=doPrint;
-    img.onerror=()=>mobilePrintShareFallback(dataUrl,cleanup);
+  }catch(err){
+    mobilePrintShareFallback(dataUrl,cleanup);
   }
 }
 
 async function mobilePrintShareFallback(dataUrl,cleanup){
-  // standalone PWA 등에서 window.print가 동작하지 않는 경우 공유 시트를 열어
-  // iOS/Android의 '프린트' 항목을 사용할 수 있게 한다.
+  // 이 폴백은 iOS의 주 경로가 아니다. iOS는 printCanvasIOS()에서 사용자 클릭 직후
+  // Web Share를 먼저 호출해 사용자 제스처 제한을 피한다.
   try{
     if(navigator.share){
       const blob=dataUrlToBlob(dataUrl);
