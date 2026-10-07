@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.12 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.13 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.1.12 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.1.13 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.1.12</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.1.13</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -2755,31 +2755,37 @@ function syncTextEditorViewport(el){
   const maxW=Math.max(80,(parentW||CW||800)-x-2);
   const maxH=Math.max(24,(parentH||CH||600)-y-2);
 
-  // 한 줄/여러 줄 모두 가장 긴 '명시적 줄'에 맞춰 오른쪽으로만 확장한다.
-  // 캔버스 끝에 닿은 경우에만 가로 스크롤을 허용한다.
-  let curW=el.offsetWidth||80;
-  const needW=Math.ceil(el.scrollWidth+3);
-  if(needW>curW+1){
-    el.style.width=Math.min(maxW,needW)+'px';
-    curW=el.offsetWidth||needW;
+  // v2.1.13: scrollWidth는 contenteditable에 지정된 현재 width 자체를 포함할 수 있다.
+  // 따라서 `scrollWidth + 여유값`을 다시 width로 저장하면, Space/Backspace/Delete처럼
+  // 내용 폭이 줄거나 그대로인 input 이벤트에서도 폭이 몇 px씩 누적 증가한다.
+  // DOM을 richLines로 읽고 Canvas와 동일한 measureRichText() 결과를 기준으로 폭/높이를
+  // 매번 '절대값'으로 계산한다. 따라서 삭제 시 폭도 실제 내용에 맞춰 줄어든다.
+  let liveLines=null, mt=null;
+  try{
+    liveLines=collectRichLinesFromEditor(el,true);
+    mt=measureRichText({richLines:liveLines,fontSize:fSz,lineHeight:fLineHeight},ctx);
+  }catch(err){
+    // 측정 실패 시 현재 박스 크기를 기준으로 누적하지 않고 일반 텍스트를 직접 측정한다.
+    const raw=String(el.innerText||el.textContent||'').replace(/\r/g,'');
+    const lines=raw.split('\n');
+    ctx.save();
+    ctx.font=`${fBold?'bold ':''}${fItal?'italic ':''}${fSz||18}px ${normalizeFF(fFam)}`.trim();
+    let maxTextW=10;
+    lines.forEach(line=>{ maxTextW=Math.max(maxTextW,ctx.measureText(line||'').width); });
+    ctx.restore();
+    mt={maxW:maxTextW,totalH:Math.max(24,(fSz||18)*(fLineHeight||1)*Math.max(1,lines.length))};
   }
+
+  // caret/안티앨리어싱이 끝 글자에 붙어 보이지 않도록 아주 작은 고정 여유만 더한다.
+  // 이 값은 현재 width에서 파생되지 않으므로 반복 input 시 누적되지 않는다.
+  const manualW=Math.max(0,Number(el._manualMinW)||0);
+  const contentW=Math.max(80,Math.ceil((mt?.maxW||10)+2));
+  const needW=Math.max(contentW,manualW);
+  el.style.width=Math.min(maxW,needW)+'px';
   el.style.overflowX=(needW>maxW+1)?'auto':'hidden';
 
-  // v2.1.12: scrollHeight를 현재 높이에 다시 더해 쓰면 contenteditable의 고정 높이가
-  // scrollHeight에 포함되는 브라우저에서 Space/input 이벤트마다 2~3px씩 높이가 누적될 수 있다.
-  // 따라서 현재 DOM을 richLines로 읽고 Canvas와 같은 텍스트 측정식으로 '내용 자체의 높이'를 계산한다.
-  // Space/일반 문자 입력은 줄 수가 바뀌지 않으므로 높이가 유지되고, Enter/삭제로 실제 줄 수가
-  // 바뀔 때만 높이가 늘거나 줄어든다. 리치텍스트의 서로 다른 글자 크기도 동일하게 반영한다.
-  let contentH=Math.max(24,Math.ceil((fSz||18)*(fLineHeight||1)));
-  try{
-    const liveLines=collectRichLinesFromEditor(el,true);
-    const mt=measureRichText({richLines:liveLines,fontSize:fSz,lineHeight:fLineHeight},ctx);
-    contentH=Math.max(24,Math.ceil(mt.totalH+1));
-  }catch(err){
-    // 측정 실패 시에도 현재 높이에 상수를 누적하지 않는다.
-    const explicitLines=Math.max(1,String(el.innerText||el.textContent||'').replace(/\r/g,'').split('\n').length);
-    contentH=Math.max(24,Math.ceil((fSz||18)*(fLineHeight||1)*explicitLines));
-  }
+  // v2.1.12+: 높이도 현재 scrollHeight가 아닌 실제 rich text 내용 높이로 계산한다.
+  const contentH=Math.max(24,Math.ceil((mt?.totalH||((fSz||18)*(fLineHeight||1)))+1));
   const manualH=Math.max(0,Number(el._manualMinH)||0);
   const needH=Math.max(contentH,manualH);
   el.style.height=Math.min(maxH,needH)+'px';
@@ -3144,7 +3150,7 @@ function openTed(x,y,exist=null){
     ed._resizeGesture=(e.clientX>=r.right-24&&e.clientY>=r.bottom-24);
   });
   ed.addEventListener('pointerup',()=>{
-    if(ed._resizeGesture){ ed._manualMinH=Math.max(24,ed.offsetHeight||24); }
+    if(ed._resizeGesture){ ed._manualMinW=Math.max(80,ed.offsetWidth||80); ed._manualMinH=Math.max(24,ed.offsetHeight||24); }
     ed._resizeGesture=false;
   });
   requestAnimationFrame(()=>syncTextEditorViewport(ed));
