@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.14 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.15 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.1.14 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.1.15 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.1.14</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.1.15</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -2675,7 +2675,10 @@ function textStylePatchFor(changed){
   return null;
 }
 function updateTextStyle(changed='all'){
-  fFam=document.getElementById('fontFamily').value;
+  // 리치 텍스트의 computedStyle은 option과 의미가 같은 글꼴도 따옴표/공백을
+  // 다르게 돌려줄 수 있다. 빈 select 값을 fFam에 덮어쓰지 않고 정식 option 값으로 맞춘다.
+  const ffEl=document.getElementById('fontFamily');
+  fFam=setFontFamilyControl(ffEl?.value||fFam);
   fSz=parseInt(document.getElementById('fontSizeInput').value)||18;
   const lhEl=document.getElementById('textLineHeight');
   if(lhEl){ const pct=parseInt(lhEl.value)||100; fLineHeight=Math.max(.7,Math.min(3,pct/100)); }
@@ -2911,13 +2914,43 @@ function applyShapeFill(){
 }
 
 function escHtml(s){return String(s??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+function fontFamilyKey(v){
+  return String(v||'').split(',').map(part=>part.trim().replace(/^['"]|['"]$/g,'').replace(/\s+/g,' ').toLowerCase()).filter(Boolean).join(',');
+}
+function findKnownFontFamilyOption(v){
+  const sel=document.getElementById('fontFamily'), key=fontFamilyKey(v);
+  if(!sel||!key)return null;
+  return Array.from(sel.options).find(opt=>!opt.dataset.documentFont&&fontFamilyKey(opt.value)===key)||null;
+}
 function normalizeFF(v){
   // Easy Paint Pad에는 PDF Markly의 normalizeFontFamily()가 없으므로
   // 자체적으로 안전한 font-family 문자열을 반환한다.
   // 이 함수가 없으면 리치 텍스트를 확정(renderAll)하는 순간 ReferenceError가 나서
   // 편집 박스와 텍스트가 함께 사라져 보일 수 있다.
   const raw=String(v||'Noto Sans KR').trim();
-  return raw||'Noto Sans KR';
+  const safe=raw||'Noto Sans KR';
+  // CSSOM은 `'Noto Sans KR',sans-serif`를 `"Noto Sans KR", sans-serif`처럼
+  // 직렬화한다. select option과 의미 기준으로 대조해 저장 형식을 하나로 통일한다.
+  return findKnownFontFamilyOption(safe)?.value||safe;
+}
+function setFontFamilyControl(v){
+  const sel=document.getElementById('fontFamily');
+  const normalized=normalizeFF(v||'sans-serif');
+  if(!sel)return normalized;
+  const known=findKnownFontFamilyOption(normalized);
+  let docOpt=Array.from(sel.options).find(opt=>opt.dataset.documentFont);
+  if(known){
+    if(docOpt)docOpt.remove();
+    sel.value=known.value;
+    return known.value;
+  }
+  // 외부/이전 EPP 문서의 사용자 글꼴도 빈칸으로 보이지 않게 실제 값을 표시한다.
+  if(!docOpt){docOpt=document.createElement('option');docOpt.dataset.documentFont='true';sel.appendChild(docOpt);}
+  docOpt.value=normalized;
+  const primary=normalized.split(',')[0].trim().replace(/^['"]|['"]$/g,'')||normalized;
+  docOpt.textContent=`문서 글꼴: ${primary}`;
+  sel.value=normalized;
+  return normalized;
 }
 function cssToHex(v){
   if(!v) return fgH;
@@ -3117,7 +3150,7 @@ function openTed(x,y,exist=null){
     ed.innerHTML=richLinesToHTML(exist);
     if(exist._edW) ed.style.width=exist._edW+'px';
     if(exist._edH) ed.style.height=exist._edH+'px';
-    if(exist.fontFamily){ fFam=exist.fontFamily; document.getElementById('fontFamily').value=fFam; }
+    if(exist.fontFamily){ fFam=setFontFamilyControl(exist.fontFamily); }
     if(exist.fontSize){ fSz=exist.fontSize; document.getElementById('fontSizeInput').value=fSz; syncFontSizeUI(fSz); }
     fLineHeight=exist.lineHeight??1;
     const lhPct=Math.max(70,Math.min(300,Math.round(fLineHeight*100)));
@@ -3323,6 +3356,7 @@ function moveO(o,dx,dy){
 // ════════════ COPY / PASTE / DUPLICATE / LAYER ════════════
 function normalizeRichTextObject(o){
   if(!o||o.type!=='text')return o;
+  o.fontFamily=normalizeFF(o.fontFamily||fFam);
   if(Array.isArray(o.richLines)){
     o.richLines=o.richLines.map(line=>Array.isArray(line)?line.map(run=>({
       text:String(run?.text??''),
@@ -3836,9 +3870,8 @@ function selObj(id){
     if(o.strokeWidth)setStrokeUI(o.strokeWidth);
     if(o.type==='text'){
       const firstRun=(o.richLines&&o.richLines.find(line=>line&&line.length)?.[0])||null;
-      document.getElementById('fontFamily').value=(firstRun?.fontFamily)||o.fontFamily||'sans-serif';
       document.getElementById('fontSizeInput').value=(firstRun?.fontSize)||o.fontSize||18; syncFontSizeUI((firstRun?.fontSize)||o.fontSize||18);
-      fFam=(firstRun?.fontFamily)||o.fontFamily||'sans-serif';fSz=(firstRun?.fontSize)||o.fontSize||18;fLineHeight=o.lineHeight??1;
+      fFam=setFontFamilyControl((firstRun?.fontFamily)||o.fontFamily||'sans-serif');fSz=(firstRun?.fontSize)||o.fontSize||18;fLineHeight=o.lineHeight??1;
       const lhPct=Math.max(70,Math.min(300,Math.round(fLineHeight*100)));
       const lhEl=document.getElementById('textLineHeight');if(lhEl)lhEl.value=lhPct;
       const lhDisp=document.getElementById('lineHeightDisplay');if(lhDisp)lhDisp.textContent=lhPct;
@@ -6087,7 +6120,7 @@ if('visualViewport' in window){
 }
 
 // ════════════ INIT ════════════
-ensureLayerState();buildPals();updColorUI();updFontPreview();
+ensureLayerState();buildPals();updColorUI();fFam=setFontFamilyControl(fFam);updFontPreview();
 initMusicSymbolUI();
 ensureMusicFontReady();
 // 초기 캔버스 DPR 설정
