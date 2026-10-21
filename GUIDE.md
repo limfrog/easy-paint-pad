@@ -94,7 +94,7 @@ Easy Paint Pad의 기본 작업 순서는 다음과 같습니다.
 
 - 프로그램 정보
 - 내장 사용설명서
-- 제작자 연락
+- 개발자 문의 (`Horizon Entertainment` · `apps@horizonent.co.kr`)
 
 ## 오른쪽 패널
 
