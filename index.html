@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.16 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.17 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.1.16 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.1.17 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.1.16</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.1.17</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -4672,7 +4672,22 @@ function flattenPixels(){
       .forEach(o=>drawO(tc,o,false));
   return tmp;
 }
-let curFile=null;
+let curFile=null,projectFileName=null;
+function fileBaseName(name,fallback='Easy_Paint_Pad'){
+  return (String(name||fallback).replace(/\.[^.]+$/,'')||fallback);
+}
+function exportBaseName(fallback='Easy_Paint_Pad'){
+  // EPP를 저장하거나 연 뒤에는 마지막 이미지 내보내기 이름보다 프로젝트 파일명을 우선한다.
+  return fileBaseName(projectFileName||curFile,fallback);
+}
+function setProjectFileName(name){
+  const next=String(name||'').trim();
+  projectFileName=next||null;
+  if(!projectFileName)return;
+  curFile=projectFileName;
+  const t=document.getElementById('titleText');
+  if(t)t.textContent=projectFileName+' - Easy Paint Pad';
+}
 function newFile(){
   if(isDirty){
     showSaveConfirm('새 파일을 만들면 현재 작업이 사라집니다.', ()=>doNewFile());
@@ -4681,7 +4696,7 @@ function newFile(){
   doNewFile();
 }
 function doNewFile(){
-  objs=[];selId=null;undoSt=[];redoSt=[];curFile=null;isDirty=false;
+  objs=[];selId=null;undoSt=[];redoSt=[];curFile=null;projectFileName=null;isDirty=false;
   oidSeq=0;resetLayers(); // id 시퀀스 초기화 (새 파일이므로 충돌 위험 없음)
   setCS(800,600);document.getElementById('titleText').textContent='제목 없음 - Easy Paint Pad';
   document.getElementById('canvasW').value=800;document.getElementById('canvasH').value=600;syncCanvasSizeUI();
@@ -4750,7 +4765,7 @@ function printCanvasIOS(dataUrl){
   try{
     if(navigator.share){
       const blob=dataUrlToBlob(dataUrl);
-      const name=((curFile||'untitled').replace(/\.[^.]+$/,'')||'untitled')+'-print.png';
+      const name=exportBaseName('untitled')+'-print.png';
       let file=null;
       try{ file=new File([blob],name,{type:'image/png',lastModified:Date.now()}); }catch(_){}
       if(file){
@@ -4840,7 +4855,7 @@ async function mobilePrintShareFallback(dataUrl,cleanup){
   try{
     if(navigator.share){
       const blob=dataUrlToBlob(dataUrl);
-      const name=((curFile||'untitled').replace(/\.[^.]+$/,'')||'untitled')+'-print.png';
+      const name=exportBaseName('untitled')+'-print.png';
       const file=new File([blob],name,{type:'image/png',lastModified:Date.now()});
       const payload={files:[file],title:'Easy Paint Pad 인쇄'};
       if(!navigator.canShare || navigator.canShare(payload)){
@@ -4910,7 +4925,7 @@ async function exportCanvasImage(fileName,mime='image/png',quality=0.92){
   return true;
 }
 async function saveFile(){
-  const n=(curFile||'Easy_Paint_Pad').replace(/\.[^.]+$/,'');
+  const n=exportBaseName();
   const ok=await exportCanvasImage(n+'.png','image/png',1);
   if(ok) markSaved();
   return ok;
@@ -4918,6 +4933,7 @@ async function saveFile(){
 // ── 새 파일로 열기
 function loadImageFile(file){
   if(!file||!file.type.startsWith('image/')) return;
+  projectFileName=null;
   curFile=file.name;
   document.getElementById('titleText').textContent=file.name+' - Easy Paint Pad';
   const rd=new FileReader();
@@ -5024,7 +5040,7 @@ canvasArea.addEventListener('drop',e=>{
 });
 let selFmt='png';
 function openSaveAs(){
-  const b=(curFile||'Easy_Paint_Pad').replace(/\.[^.]+$/,'');
+  const b=exportBaseName();
   document.getElementById('saveFileName').value=b;
   document.getElementById('saveAsModal').classList.remove('hidden');
   setTimeout(()=>document.getElementById('saveFileName').select(),50);
@@ -5049,8 +5065,12 @@ async function executeSaveAs(){
   closeSaveAs();
   const ok=await exportCanvasImage(fileName,mime,q);
   if(!ok) return;
-  curFile=fileName;
-  document.getElementById('titleText').textContent=curFile+' - Easy Paint Pad';
+  // EPP 프로젝트가 없을 때만 이미지 이름을 현재 작업 이름으로 사용한다.
+  // 프로젝트가 있으면 이후 PNG/PDF도 계속 EPP 파일명을 기준으로 한다.
+  if(!projectFileName){
+    curFile=fileName;
+    document.getElementById('titleText').textContent=curFile+' - Easy Paint Pad';
+  }
   markSaved();
 }
 document.getElementById('saveAsModal').addEventListener('click',e=>{if(e.target===document.getElementById('saveAsModal'))closeSaveAs();});
@@ -5388,7 +5408,7 @@ function savePDF(){
     const doc=new jsPDF({orientation:'portrait', unit:'pt', format:'a4'});
     const dataUrl=flatten().toDataURL('image/png');
     doc.addImage(dataUrl,'PNG',offX,offY,imgW,imgH);
-    const name=(curFile||'untitled').replace(/\.[^.]+$/,'')||'untitled';
+    const name=exportBaseName('untitled');
     doc.save(name+'.pdf');
   }
   if(window.jspdf){ doSavePDF(); }
@@ -5403,14 +5423,15 @@ function savePDF(){
 }
 // ════════════ EPP 프로젝트 저장/열기 ════════════
 function saveEPP(){
-  const json=buildEPPJson();
+  const eppName=exportBaseName('untitled')+'.epp';
+  const json=buildEPPJson(eppName);
   const blob=new Blob([json],{type:'application/json'});
   const a=document.createElement('a');
-  const name=(curFile||'untitled').replace(/\.[^.]+$/,'')||'untitled';
-  a.download=name+'.epp';
+  a.download=eppName;
   a.href=URL.createObjectURL(blob);
   a.click();
   URL.revokeObjectURL(a.href);
+  setProjectFileName(eppName);
   markSaved();
 }
 
@@ -5447,8 +5468,7 @@ function loadEPP(file){
         ensureLayerState();ensureBackgroundFlag(objs);
         resyncOidSeq(); // id 충돌 방지: 로드된 객체의 최대 id 이상으로 시퀀스 재설정
         undoSt=[];redoSt=[];isDirty=false;
-        curFile=project.meta?.title||file.name;
-        document.getElementById('titleText').textContent=curFile+' - Easy Paint Pad';
+        setProjectFileName(file.name||project.meta?.title||'untitled.epp');
         saveH();isDirty=false;
         const t=document.getElementById('titleText');
         if(t) t.textContent=t.textContent.replace(/^● /,'');
@@ -5470,8 +5490,7 @@ function loadEPP(file){
               ensureLayerState();ensureBackgroundFlag(objs);
               resyncOidSeq();
               undoSt=[];redoSt=[];isDirty=false;
-              curFile=project.meta?.title||file.name;
-              document.getElementById('titleText').textContent=curFile+' - Easy Paint Pad';
+              setProjectFileName(file.name||project.meta?.title||'untitled.epp');
               saveH();isDirty=false;
               const t=document.getElementById('titleText');
               if(t) t.textContent=t.textContent.replace(/^● /,'');
@@ -5485,6 +5504,7 @@ function loadEPP(file){
               ensureLayerState();ensureBackgroundFlag(objs);
               resyncOidSeq();
               undoSt=[];redoSt=[];isDirty=false;
+              setProjectFileName(file.name||project.meta?.title||'untitled.epp');
               saveH();isDirty=false;
               renderAll();refreshList();
             }
@@ -5788,18 +5808,18 @@ async function clearAllRecentFiles(){
 async function saveEPPWithPicker(){
   if(!FS_SUPPORTED){ saveEPP(); return; } // 폴백: 기존 다운로드 방식
   try{
-    const suggestedName=(curFile||'untitled').replace(/\.[^.]+$/,'')+'.epp';
+    const suggestedName=exportBaseName('untitled')+'.epp';
     const handle=await window.showSaveFilePicker({
       suggestedName,
       types:[{description:'Easy Paint Pad 프로젝트',accept:{'application/json':['.epp']}}]
     });
-    const json=buildEPPJson();
+    const eppName=handle.name||suggestedName;
+    const json=buildEPPJson(eppName);
     const writable=await handle.createWritable();
     await writable.write(json);
     await writable.close();
 
-    curFile=handle.name;
-    document.getElementById('titleText').textContent=curFile+' - Easy Paint Pad';
+    setProjectFileName(eppName);
     markSaved();
 
     await saveRecentFile({
@@ -5815,7 +5835,7 @@ async function saveEPPWithPicker(){
 async function saveImageWithPicker(){
   if(!FS_SUPPORTED){ saveFile(); return; } // 폴백
   try{
-    const suggestedName=(curFile||'Easy_Paint_Pad').replace(/\.[^.]+$/,'')+'.png';
+    const suggestedName=exportBaseName()+'.png';
     const handle=await window.showSaveFilePicker({
       suggestedName,
       types:[{description:'PNG 이미지',accept:{'image/png':['.png']}}]
@@ -5837,7 +5857,7 @@ async function saveImageWithPicker(){
 }
 
 // EPP 프로젝트 JSON 문자열 생성 (기존 saveEPP와 공통 로직 분리)
-function buildEPPJson(){
+function buildEPPJson(projectTitle=projectFileName||curFile||'untitled'){
   const saveObjs = objs.map(o=>{
     if(o.type==='image'){
       const c=Object.assign({},o);
@@ -5851,7 +5871,7 @@ function buildEPPJson(){
   const project={
     version:2, width:CW, height:CH, objs:saveObjs,
     layers:layers.map(l=>({...l})),activeLayerId,layerSeq,
-    meta:{ title:curFile||'untitled', savedAt:new Date().toISOString() }
+    meta:{ title:projectTitle, savedAt:new Date().toISOString() }
   };
   return JSON.stringify(project);
 }
