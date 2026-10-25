@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.17 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.18 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.1.17 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.1.18 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.1.17</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.1.18</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -3387,10 +3387,14 @@ function setObjectClipboard(o,copiedAt=Date.now()){
   c._copiedAt=copiedAt; clip=c; pixelClip=null; lastCopyType='object'; return true;
 }
 function copySelected(){
-  if(!selId)return;
-  const o=objs.find(x=>x.id===selId);
-  if(!o||!setObjectClipboard(o))return;
-  const payload=JSON.stringify({_eppClip:true,version:2,obj:clip,copiedAt:clip._copiedAt});
+  const ids=new Set(selIds.length?selIds:(selId!=null?[selId]:[]));
+  // 선택 순서와 무관하게 원본의 그리기 순서를 유지한다.
+  const selected=objs.filter(o=>ids.has(o.id));
+  if(!selected.length)return;
+  const copied=selected.map(o=>cloneEppObject(o,{keepImage:false}));
+  const content=copied.length===1?copied[0]:{type:'objectGroup',objects:copied};
+  if(!setObjectClipboard(content))return;
+  const payload=JSON.stringify({_eppClip:true,version:3,obj:clip,copiedAt:clip._copiedAt});
   navigator.clipboard?.writeText(payload).catch(()=>{});
 }
 function translateObject(o,dx,dy){
@@ -3405,27 +3409,44 @@ function placeObjectAtLastClick(o){
   // 새 클릭이 없으면 기존 동작처럼 원본에서 20px 오프셋하여 붙여넣는다.
   const copiedAt=Number(clip?._copiedAt)||0;
   if(!lastCanvasClickAt||lastCanvasClickAt<=copiedAt)return false;
-  const b=getBounds(o);
+  const list=Array.isArray(o)?o:[o];
+  const bounds=list.map(item=>getBounds(item));
+  const x=Math.min(...bounds.map(b=>b.x)), y=Math.min(...bounds.map(b=>b.y));
+  const b={x,y,w:Math.max(...bounds.map(b=>b.x+b.w))-x,h:Math.max(...bounds.map(b=>b.y+b.h))-y};
   if(!b||![b.x,b.y,b.w,b.h].every(Number.isFinite))return false;
   let nx=lastClickX-b.w/2, ny=lastClickY-b.h/2;
   // 가능한 경우 객체 전체가 캔버스 안에 남도록 가장 가까운 위치로 보정한다.
   if(b.w<=CW)nx=Math.max(0,Math.min(CW-b.w,nx));
   if(b.h<=CH)ny=Math.max(0,Math.min(CH-b.h,ny));
-  translateObject(o,nx-b.x,ny-b.y);
+  list.forEach(item=>translateObject(item,nx-b.x,ny-b.y));
   return true;
 }
-function pasteClipboard(){
+async function pasteClipboard(){
   if(!clip)return;
-  const c=cloneEppObject(clip,{keepImage:false}); if(!c)return;
-  c.id=mkId();c.layerId=activeLayerId;
-  if(!placeObjectAtLastClick(c))translateObject(c,20,20);
-  delete c._copiedAt;
-  if(c.type==='image'&&c._src){
-    const img=new Image();
-    img.onload=()=>{c.img=img;delete c._src;objs.push(c);saveH();selObj(c.id);renderAll();refreshList();};
-    img.src=c._src;return;
+  const source=clip.type==='objectGroup'?clip.objects:[clip];
+  if(!Array.isArray(source)||!source.length)return;
+  const copies=source.map(o=>cloneEppObject(o,{keepImage:false}));
+  copies.forEach(c=>{c.id=mkId();c.layerId=activeLayerId;delete c._copiedAt;});
+  if(!placeObjectAtLastClick(copies))copies.forEach(c=>translateObject(c,20,20));
+  // 이미지 로딩 순서가 달라도 전체 객체를 원래 순서대로 한 번에 추가한다.
+  try{
+    await Promise.all(copies.map(c=>{
+      if(c.type!=='image'||!c._src)return Promise.resolve();
+      return new Promise((resolve,reject)=>{
+        const img=new Image();
+        img.onload=()=>{c.img=img;delete c._src;resolve();};
+        img.onerror=()=>reject(new Error('복사한 이미지를 불러올 수 없습니다.'));
+        img.src=c._src;
+      });
+    }));
+  }catch(err){
+    console.warn('객체 붙여넣기 실패:',err);
+    alert('이미지를 불러오지 못해 붙여넣기를 완료하지 못했습니다. 다시 복사해주세요.');
+    return;
   }
-  objs.push(c);saveH();selObj(c.id);renderAll();refreshList();
+  objs.push(...copies);saveH();
+  if(copies.length===1)selObj(copies[0].id);
+  else{selIds=copies.map(c=>c.id);selId=selIds[selIds.length-1];drawSel();renderAll();refreshList();}
 }
 function duplicateSelected(){
   // Ctrl+D / 컨텍스트 메뉴 '복제': 원본과 정확히 같은 위치에 복제한다.
@@ -5224,7 +5245,7 @@ HC.addEventListener('contextmenu', e=>{
   if(tool==='select2'){
     const{x,y}=getPos(e);
     const hit=hitTest(Math.round(x),Math.round(y));
-    if(hit && hit.id !== selId) selObj(hit.id);
+    if(hit && hit.id !== selId && !selIds.includes(hit.id)) selObj(hit.id);
   }
   showCtx(e.clientX, e.clientY);
 });
