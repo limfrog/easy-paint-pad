@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.21 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.22 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.1.21 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.1.22 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.1.21</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.1.22</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -1640,6 +1640,8 @@ function saveH(){
 // pop하지 않고 그대로 복원해야 한다 — pop 후 복원하면 방금 꺼낸 "현재 상태"를 다시 복원하는
 // 셈이 되어 첫 undo가 아무 변화 없이 스택만 소모하는 버그가 생긴다.
 function undo(){
+  if(marqueKeyboardCommitPromise){marqueKeyboardCommitPromise.then(()=>undo());return;}
+  if(marqueKeyboardMove){marqueCancel(true);return;}
   if(undoSt.length<2)return; // 현재 상태 포함 최소 2개는 있어야 이전 상태로 갈 수 있음
   redoSt.push(undoSt.pop());
   restoreObjs(undoSt[undoSt.length-1]);
@@ -2240,6 +2242,8 @@ let marqueSnapX=0,marqueSnapY=0;  // 현재 snap 그리는 위치
 let marqueSnapW=0,marqueSnapH=0;  // snap 크기
 let marqueCommitted=false; // 픽셀을 잘라낸 상태인지
 let marqueLayerId=null;   // 범위 선택을 시작한 레이어에 고정 (다른 레이어 잠금/선택 변화의 영향 차단)
+let marqueKeyboardMove=null; // 방향키로 시작한 이동: Esc 복원과 한 번의 Undo를 위한 원본
+let marqueKeyboardCommitPromise=null;
 let pixelClip=null;        // 복사된 픽셀 클립보드 {snap, w, h}
 
 // 영역 선택 박스를 SVG 오버레이에 그리기 + 픽셀 snap 임시 렌더
@@ -3428,6 +3432,7 @@ function placeObjectAtLastClick(o){
   return true;
 }
 async function pasteClipboard(){
+  if(marqueKeyboardMove||marqueKeyboardCommitPromise)await settleKeyboardMarque();
   if(!clip)return;
   const source=clip.type==='objectGroup'?clip.objects:[clip];
   if(!Array.isArray(source)||!source.length)return;
@@ -3494,7 +3499,7 @@ function getEditableMarquePixelObjs(sx,sy,sw,sh){
 }
 
 // ── 픽셀 영역 잘라내기: flatten → 선택 영역 픽셀 추출 → 원본 지우기
-function marqueCut(isCopy=false){
+function marqueCut(isCopy=false,keyboardMove=null){
   if(!marqueRect) return;
   const rx=Math.min(marqueRect.x,marqueRect.x+marqueRect.w);
   const ry=Math.min(marqueRect.y,marqueRect.y+marqueRect.h);
@@ -3537,9 +3542,11 @@ function marqueCut(isCopy=false){
   const holeCanvas=document.createElement('canvas');
   holeCanvas.width=CW;holeCanvas.height=CH;
   holeCanvas.getContext('2d').drawImage(full,0,0);
+  if(keyboardMove){keyboardMove.holeCanvas=holeCanvas;keyboardMove.pixelObjs=pixelObjs;}
   const holeDataURL=holeCanvas.toDataURL('image/png');
-  const holeImg=new Image();holeImg.src=holeDataURL;
+  const holeImg=new Image();
   holeImg.onload=()=>{
+    if(keyboardMove&&marqueKeyboardMove!==keyboardMove)return;
     const baseObj={id:mkId(),type:'image',img:holeImg,x:0,y:0,w:CW,h:CH,alpha:1,layerId:targetLayerId,isBackground:pixelObjs.some(o=>o.isBackground)};
     const firstPixelIdx=objs.findIndex(o=>pixelObjs.includes(o));
     const newObjs=[...keepObjs];
@@ -3554,18 +3561,68 @@ function marqueCut(isCopy=false){
       marqueDragCopy={snap:marqueSnap,x:sx,y:sy,w:sw,h:sh};
       HC.style.cursor='copy';
     }
-    saveH();
+    if(keyboardMove)keyboardMove.ready=true;
+    else saveH();
     drawMarque();renderAll();
     document.getElementById('statusObj').textContent=
       isCopy
         ? `복사 이동: ${sw}×${sh} px — 드래그로 이동 · 클릭으로 확정 · Esc 취소`
-        : `영역 선택: ${sw}×${sh} px — 드래그로 이동 · 클릭으로 확정 · Delete 삭제 · Esc 취소`;
+        : `영역 선택: ${sw}×${sh} px — 방향키/드래그 이동 · Enter 확정 · Esc 취소`;
+    if(keyboardMove?.action==='commit')marqueCommit();
+    else if(keyboardMove?.action==='delete')marqueCancel(false);
   };
+  holeImg.onerror=()=>{
+    if(keyboardMove&&marqueKeyboardMove===keyboardMove)marqueCancel(true);
+  };
+  holeImg.src=holeDataURL;
+}
+
+function moveMarqueByKey(dx,dy){
+  if(marqueKeyboardMove?.action)return;
+  if(isLayerLocked(marqueLayerId||activeLayerId))return;
+  if(!marqueSnap&&marqueRect){
+    const x=Math.max(0,Math.round(Math.min(marqueRect.x,marqueRect.x+marqueRect.w)));
+    const y=Math.max(0,Math.round(Math.min(marqueRect.y,marqueRect.y+marqueRect.h)));
+    const w=Math.min(Math.round(Math.abs(marqueRect.w)),CW-x),h=Math.min(Math.round(Math.abs(marqueRect.h)),CH-y);
+    if(w<=0||h<=0)return;
+    if(Math.max(0,Math.min(CW-w,x+dx))===x&&Math.max(0,Math.min(CH-h,y+dy))===y)return;
+    const move={objs:objs.slice(),ready:false,action:null,wasDirty:isDirty,title:document.getElementById('titleText').textContent};
+    move.done=new Promise(resolve=>{move.resolve=resolve;});
+    marqueKeyboardMove=move;
+    marqueCut(false,move);
+    if(!marqueSnap){marqueKeyboardMove=null;move.resolve();return;}
+    isDirty=true;
+    const title=document.getElementById('titleText');
+    if(!title.textContent.startsWith('●'))title.textContent='● '+title.textContent;
+  }
+  if(!marqueSnap)return;
+  // 선택 영역 전체가 캔버스 안에 남도록 이동 범위를 제한한다.
+  marqueSnapX=Math.max(0,Math.min(Math.max(0,CW-marqueSnapW),marqueSnapX+dx));
+  marqueSnapY=Math.max(0,Math.min(Math.max(0,CH-marqueSnapH),marqueSnapY+dy));
+  marqueRect={x:marqueSnapX,y:marqueSnapY,w:marqueSnapW,h:marqueSnapH};
+  selId=null;clearSel();drawMarque();
+}
+
+function settleKeyboardMarque(){
+  if(marqueKeyboardMove){const move=marqueKeyboardMove;marqueCommit();return move.done;}
+  return marqueKeyboardCommitPromise||Promise.resolve();
+}
+
+function clearMarqueForDocument(){
+  if(marqueKeyboardMove)marqueCancel(true);
+  marqueSnap=null;marqueRect=null;marqueLayerId=null;marqueCommitted=false;
+  marqueDragging=false;marqueDrawing=false;marquePendingCut=false;marquePendingCopy=false;marqueDragCopy=null;
+  drawMarque();
 }
 
 // ── 선택 픽셀을 현재 위치에 붙여넣기(확정)
 function marqueCommit(){
   if(!marqueSnap) return;
+  if(marqueKeyboardMove&&!marqueKeyboardMove.ready){marqueKeyboardMove.action='commit';return;}
+  const keyboardMove=marqueKeyboardMove;
+  if(keyboardMove)marqueKeyboardCommitPromise=keyboardMove.done;
+  const commitObjs=objs;
+  marqueKeyboardMove=null;
   // 비동기 onload 전에 위치값 즉시 캡처 (나중에 변경되어도 안전)
   const snapData=marqueSnap;
   const snapX=marqueSnapX, snapY=marqueSnapY;
@@ -3580,15 +3637,33 @@ function marqueCommit(){
   tmp.getContext('2d').putImageData(snapData,0,0);
   const img=new Image();
   img.onload=()=>{
+    if(keyboardMove&&objs!==commitObjs){keyboardMove.resolve();marqueKeyboardCommitPromise=null;return;}
     objs.push({id:mkId(),type:'image',img,x:snapX,y:snapY,w:snapW,h:snapH,alpha:1,layerId:targetLayerId});
     saveH(); renderAll();
     document.getElementById('statusObj').textContent='';
+    if(keyboardMove){keyboardMove.resolve();marqueKeyboardCommitPromise=null;}
+  };
+  img.onerror=()=>{
+    if(keyboardMove){marqueKeyboardMove=keyboardMove;marqueKeyboardCommitPromise=null;marqueCancel(true);}
   };
   img.src=tmp.toDataURL();
 }
 
 // ── 선택 취소 (Delete: snap 버림 / Esc: snap 원위치 후 확정)
 function marqueCancel(restore){
+  if(marqueKeyboardMove){
+    const move=marqueKeyboardMove;
+    if(!restore&&!move.ready){move.action='delete';return;}
+    marqueKeyboardMove=null;
+    if(restore){objs=move.objs;isDirty=move.wasDirty;document.getElementById('titleText').textContent=move.title;}
+    marqueSnap=null;marqueRect=null;marqueCommitted=false;marqueLayerId=null;
+    marqueDragging=false;marquePendingCut=false;marqueDragCopy=null;
+    drawMarque();renderAll();refreshList();
+    document.getElementById('statusObj').textContent='';
+    if(!restore)saveH();
+    move.resolve();
+    return;
+  }
   const targetLayerId=marqueLayerId||activeLayerId;
   if(restore&&marqueSnap){
     const snapData=marqueSnap;
@@ -3727,7 +3802,7 @@ function marqueCopy(){
     if(sw<2||sh<2) return false;
     // marqueSnap이 있으면(잘린 상태) snap에서 읽기, 없으면 flattenPixels에서 읽기
     let snap, csw, csh;
-    if(marqueSnap&&marqueCommitted){
+    if(marqueSnap&&(marqueCommitted||marqueKeyboardMove)){
       // 이미 잘린 상태 → snap을 그대로 복사
       snap=marqueSnap; csw=marqueSnapW; csh=marqueSnapH;
     } else {
@@ -3771,6 +3846,10 @@ function marqueCut2(){
   if(isLayerLocked(targetLayerId)){
     document.getElementById('statusObj').textContent='현재 레이어가 잠겨 있어 범위 선택으로 잘라낼 수 없습니다.';
     return false;
+  }
+  if(marqueKeyboardMove&&marqueSnap){
+    pixelClip={snap:marqueSnap,w:marqueSnapW,h:marqueSnapH};
+    lastCopyType='pixel';marqueCancel(false);return true;
   }
   if(marqueSnap){
     // 이미 잘린 상태 → 클립보드에 저장, snap은 버림(확정 안 함)
@@ -3826,6 +3905,7 @@ function marqueCut2(){
 // ── 픽셀 붙여넣기 → marqueSnap으로 띄워서 이동 가능한 상태로
 function marquePixelPaste(){
   if(!pixelClip) return false;
+  if(marqueKeyboardMove||marqueKeyboardCommitPromise){settleKeyboardMarque().then(()=>marquePixelPaste());return true;}
   marqueDragCopy=null; // 복사 드래그 상태 초기화
   // marqueSnap이 있으면 원위치에 복원 후 snap 해제 (잘라내기 방지)
   if(marqueSnap&&marqueCommitted){
@@ -4164,6 +4244,7 @@ document.addEventListener('mousemove',e=>{
 
 function onDown(e){
   if(spaceKeyDown) return; // Space+드래그(캔버스 팬) 중에는 현재 도구의 동작을 실행하지 않음
+  if(marqueKeyboardMove&&!marqueKeyboardMove.ready){marqueCommit();return;}
   const{x,y}=getPos(e);const xi=Math.round(x),yi=Math.round(y);
   lastClickX=xi; lastClickY=yi; lastCanvasClickAt=Date.now(); // 클릭 위치/시각 기록
 
@@ -4484,7 +4565,7 @@ document.addEventListener('mouseup',()=>{
         saveH(); renderAll();
       };
       img.src=tmp.toDataURL();
-    } else {
+    } else if(!marqueKeyboardMove) {
       saveH();
     }
     return;
@@ -4498,7 +4579,7 @@ document.addEventListener('mouseup',()=>{
     }
     drawMarque();
     document.getElementById('statusObj').textContent=
-      `영역 선택: ${Math.round(rw)}×${Math.round(rh)} px — 드래그로 이동 · Ctrl+C 복사 · Ctrl+X 잘라내기 · Delete 삭제`;
+      `영역 선택: ${Math.round(rw)}×${Math.round(rh)} px — 방향키/드래그 이동 · Ctrl+C 복사 · Ctrl+X 잘라내기 · Delete 삭제`;
     return;
   }
   // 캔버스 핸들 리사이즈 완료
@@ -4701,7 +4782,19 @@ function switchTab(n,b){
 function flatten(){
   const tmp=document.createElement('canvas');tmp.width=CW;tmp.height=CH;
   const tc=tmp.getContext('2d');tc.fillStyle='#fff';tc.fillRect(0,0,CW,CH);
-  getRenderObjects().forEach(o=>drawO(tc,o,false));return tmp;
+  const move=marqueKeyboardMove;
+  let drewHole=false;
+  getRenderObjects().forEach(o=>{
+    if(move&&!move.ready&&move.pixelObjs.includes(o)){
+      if(!drewHole){tc.drawImage(move.holeCanvas,0,0);drewHole=true;}
+    }else drawO(tc,o,false);
+  });
+  // 키보드 이동 중인 픽셀도 동기적으로 내보내 모바일 공유의 사용자 동작을 유지한다.
+  if(move&&marqueSnap){
+    const snap=document.createElement('canvas');snap.width=marqueSnapW;snap.height=marqueSnapH;
+    snap.getContext('2d').putImageData(marqueSnap,0,0);tc.drawImage(snap,marqueSnapX,marqueSnapY);
+  }
+  return tmp;
 }
 // 픽셀 편집용: image/stroke 타입만 렌더 (text/shape 제외 → 겹침 방지)
 function flattenPixels(){
@@ -4736,6 +4829,7 @@ function newFile(){
   doNewFile();
 }
 function doNewFile(){
+  clearMarqueForDocument();
   objs=[];selId=null;undoSt=[];redoSt=[];curFile=null;projectFileName=null;isDirty=false;
   oidSeq=0;resetLayers(); // id 시퀀스 초기화 (새 파일이므로 충돌 위험 없음)
   setCS(800,600);document.getElementById('titleText').textContent='제목 없음 - Easy Paint Pad';
@@ -4972,6 +5066,7 @@ async function saveFile(){
 }
 // ── 새 파일로 열기
 function loadImageFile(file){
+  clearMarqueForDocument();
   if(!file||!file.type.startsWith('image/')) return;
   projectFileName=null;
   curFile=file.name;
@@ -5124,6 +5219,20 @@ document.addEventListener('keydown',e=>{
     if(e.key==='Escape')commitT();
     return;
   }
+  if(e.target.closest?.('input,textarea,select,[contenteditable="true"]')&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter','Escape'].includes(e.key))return;
+  if(!e.ctrlKey&&!e.metaKey&&!e.altKey&&tool==='marque'&&!marqueDrawing&&(marqueRect||marqueSnap)){
+    if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){
+      e.preventDefault();
+      const d=e.shiftKey?10:1;
+      moveMarqueByKey(e.key==='ArrowLeft'?-d:e.key==='ArrowRight'?d:0,e.key==='ArrowUp'?-d:e.key==='ArrowDown'?d:0);
+      return;
+    }
+    if(e.key==='Enter'){
+      e.preventDefault();
+      if(marqueSnap)marqueCommit();else{marqueRect=null;drawMarque();}
+      return;
+    }
+  }
   const mod=e.metaKey||e.ctrlKey;
   if(mod){
     const key=e.key.toLowerCase();
@@ -5206,14 +5315,6 @@ document.addEventListener('keydown',e=>{
       if(moved) renderAll();
       clearTimeout(window._arrowSaveT);
       window._arrowSaveT=setTimeout(()=>{ if(moved) saveH(); },400);
-    }
-    // 영역 선택 화살표 이동 (픽셀 snap)
-    if(marqueSnap&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
-      e.preventDefault();
-      const d=e.shiftKey?10:1,dx=e.key==='ArrowLeft'?-d:e.key==='ArrowRight'?d:0,dy=e.key==='ArrowUp'?-d:e.key==='ArrowDown'?d:0;
-      marqueSnapX+=dx;marqueSnapY+=dy;
-      if(marqueRect){marqueRect.x+=dx;marqueRect.y+=dy;}
-      drawMarque();
     }
   }
 });
@@ -5436,7 +5537,8 @@ function setTheme(t){
 }
 
 // ════════════ PDF 저장 ════════════
-function savePDF(){
+async function savePDF(){
+  if(marqueKeyboardMove||marqueKeyboardCommitPromise)await settleKeyboardMarque();
   function doSavePDF(){
     const {jsPDF}=window.jspdf;
     // A4: portrait=595.28×841.89pt, landscape=841.89×595.28pt
@@ -5464,7 +5566,8 @@ function savePDF(){
   }
 }
 // ════════════ EPP 프로젝트 저장/열기 ════════════
-function saveEPP(){
+async function saveEPP(){
+  if(marqueKeyboardMove||marqueKeyboardCommitPromise)await settleKeyboardMarque();
   const eppName=exportBaseName('untitled')+'.epp';
   const json=buildEPPJson(eppName);
   const blob=new Blob([json],{type:'application/json'});
@@ -5478,6 +5581,7 @@ function saveEPP(){
 }
 
 function loadEPP(file){
+  clearMarqueForDocument();
   if(!file) return;
   // 이전 버전에서 저장된 EPP는 isBackground 플래그가 없으므로,
   // 명시적인 true/false 표시가 없는 구형 문서만 첫 이미지를 배경으로 간주한다.
@@ -5852,6 +5956,7 @@ async function clearAllRecentFiles(){
 
 // ── 파일로 저장 (File System Access API 사용, 핸들을 최근 목록에 기록)
 async function saveEPPWithPicker(){
+  if(marqueKeyboardMove||marqueKeyboardCommitPromise)await settleKeyboardMarque();
   if(!FS_SUPPORTED){ saveEPP(); return; } // 폴백: 기존 다운로드 방식
   try{
     const suggestedName=exportBaseName('untitled')+'.epp';
@@ -5879,6 +5984,7 @@ async function saveEPPWithPicker(){
 }
 
 async function saveImageWithPicker(){
+  if(marqueKeyboardMove||marqueKeyboardCommitPromise)await settleKeyboardMarque();
   if(!FS_SUPPORTED){ saveFile(); return; } // 폴백
   try{
     const suggestedName=exportBaseName()+'.png';
