@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.18 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.19 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.1.18 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.1.19 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.1.18</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.1.19</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -3293,7 +3293,7 @@ function applyEraserStroke(eraserObj){
   const resultURL=tmpC.toDataURL('image/png');
   const img=new Image();
   img.onload=()=>{
-    const newImgObj={id:mkId(),type:'image',img,x:0,y:0,w:CW,h:CH,alpha:1,layerId:activeLayerId};
+    const newImgObj={id:mkId(),type:'image',img,x:0,y:0,w:CW,h:CH,alpha:1,layerId:activeLayerId,isBackground:pixelObjs.some(o=>o.isBackground)};
     const preserved=overlapping.filter(o=>o.type==='text'||o.type==='shape');
     // 원래 objs 순서에서 pixelObjs 중 첫 번째 위치에 newImgObj 삽입
     const firstPixelIdx=objs.findIndex(o=>pixelObjs.includes(o));
@@ -3326,7 +3326,7 @@ function floodFill(px,py,hex,alpha){
   const removeIds=new Set(layerObjs.filter(o=>o.type==='image'||o.type==='stroke').map(o=>o.id));
   const firstIdx=objs.findIndex(o=>removeIds.has(o.id));
   objs=objs.filter(o=>!removeIds.has(o.id));
-  const ni={id:mkId(),type:'image',img,x:0,y:0,w:CW,h:CH,alpha:1,layerId:activeLayerId};
+  const ni={id:mkId(),type:'image',img,x:0,y:0,w:CW,h:CH,alpha:1,layerId:activeLayerId,isBackground:layerObjs.some(o=>o.isBackground)};
   const insertAt=firstIdx>=0?Math.min(firstIdx,objs.length):objs.length;objs.splice(insertAt,0,ni);
   saveH();
 }
@@ -3532,7 +3532,7 @@ function marqueCut(isCopy=false){
   const holeDataURL=holeCanvas.toDataURL('image/png');
   const holeImg=new Image();holeImg.src=holeDataURL;
   holeImg.onload=()=>{
-    const baseObj={id:mkId(),type:'image',img:holeImg,x:0,y:0,w:CW,h:CH,alpha:1,layerId:targetLayerId};
+    const baseObj={id:mkId(),type:'image',img:holeImg,x:0,y:0,w:CW,h:CH,alpha:1,layerId:targetLayerId,isBackground:pixelObjs.some(o=>o.isBackground)};
     const firstPixelIdx=objs.findIndex(o=>pixelObjs.includes(o));
     const newObjs=[...keepObjs];
     const insertAt=firstPixelIdx>=0 ? Math.min(firstPixelIdx, newObjs.length) : 0;
@@ -3799,7 +3799,7 @@ function marqueCut2(){
   hc.getContext('2d').drawImage(full,0,0);
   const hImg=new Image();
   hImg.onload=()=>{
-    const baseObj={id:mkId(),type:'image',img:hImg,x:0,y:0,w:CW,h:CH,alpha:1,layerId:activeLayerId};
+    const baseObj={id:mkId(),type:'image',img:hImg,x:0,y:0,w:CW,h:CH,alpha:1,layerId:activeLayerId,isBackground:pixelObjs.some(o=>o.isBackground)};
     const firstPixelIdx=objs.findIndex(o=>pixelObjs.includes(o));
     const newObjs=[...keepObjs];
     const insertAt=firstPixelIdx>=0?Math.min(firstPixelIdx,newObjs.length):0;
@@ -4965,7 +4965,7 @@ function loadImageFile(file){
       document.getElementById('canvasW').value=img.width;
       document.getElementById('canvasH').value=img.height;
       syncCanvasSizeUI();
-      objs=[];undoSt=[];redoSt=[];isDirty=false;
+      objs=[];undoSt=[];redoSt=[];selId=null;clearSel();isDirty=false;
       oidSeq=0;resetLayers(); // 새 이미지로 시작하므로 id 시퀀스 초기화
       objs.push({id:mkId(),type:'image',img,x:0,y:0,w:img.width,h:img.height,alpha:1,isBackground:true,layerId:activeLayerId});
       saveH();setZoom(1);
@@ -5482,6 +5482,7 @@ function loadEPP(file){
 
       // 객체 복원 (image 타입은 _src→img 재생성)
       const loadedObjs=project.objs;
+      selId=null;clearSel();
       let pending=loadedObjs.filter(o=>o.type==='image'&&o._src).length;
 
       if(pending===0){
@@ -5589,7 +5590,9 @@ function executeResize(){
 
   const img=new Image();
   img.onload=()=>{
-    objs=[{id:mkId(),type:'image',img,x:0,y:0,w:nW,h:nH,alpha:1}];
+    // 전체 작업을 평탄화해 만든 이미지도 기존 바탕 이미지의 선택 규칙을 유지한다.
+    const isBackground=objs.some(o=>o.isBackground);
+    objs=[{id:mkId(),type:'image',img,x:0,y:0,w:nW,h:nH,alpha:1,layerId:activeLayerId,isBackground}];
     setCS(nW,nH);
     document.getElementById('canvasW').value=nW;
     document.getElementById('canvasH').value=nH;
@@ -5662,7 +5665,8 @@ function applyDocumentize(){
   img.onload=()=>{
     // 기존 image 타입 객체를 교체, text/shape는 보존
     const vecObjs=objs.filter(o=>o.type==='text'||o.type==='shape');
-    objs=[{id:mkId(),type:'image',img,x:0,y:0,w:CW,h:CH,alpha:1,layerId:activeLayerId},...vecObjs];
+    const isBackground=objs.some(o=>o.isBackground);
+    objs=[{id:mkId(),type:'image',img,x:0,y:0,w:CW,h:CH,alpha:1,layerId:activeLayerId,isBackground},...vecObjs];
     saveH();renderAll();refreshList();
     closeDocumentize();
   };
