@@ -1,7 +1,8 @@
-const CACHE_NAME = 'easy-paint-pad-v86';
+const CACHE_NAME = 'easy-paint-pad-v87';
 const ASSETS = [
   './',
   './index.html',
+  './object-clipboard.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'

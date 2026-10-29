@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.19 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.20 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.1.19 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.1.20 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.1.19</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.1.20</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -1321,6 +1321,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <input type="file" id="openInput" accept="image/*,.epp">
 <input type="color" id="colorPickerInput">
 
+<script src="object-clipboard.js"></script>
 <script>
 // ════════════ CANVAS SETUP ════════════
 const bgC=document.getElementById('bgCanvas'), bgX=bgC.getContext('2d');
@@ -1685,7 +1686,7 @@ function dStroke(c,o,hit){
   }else if(o.eraser){
     c.globalCompositeOperation='destination-out';
     c.strokeStyle='rgba(0,0,0,1)';c.fillStyle='rgba(0,0,0,1)';
-  }else{c.strokeStyle=o.color;c.fillStyle=o.color;}
+  }else{c.strokeStyle=o.color;c.fillStyle=o.color;if(o.highlight)c.globalCompositeOperation='multiply';}
   // 획: 좌표 스냅핑으로 선명도 향상 (연속 곡선이므로 0.5 오프셋 대신 round)
   c.beginPath();
   c.moveTo(Math.round(o.points[0].x), Math.round(o.points[0].y));
@@ -1697,6 +1698,7 @@ function dStroke(c,o,hit){
   c.restore();
 }
 function dShape(c,o,hit){
+  if(!hit&&o._horizonGeometry){HorizonClipboard.drawShape(c,o,'easy-paint-pad');return;}
   c.save(); c.lineCap='round'; c.lineJoin='round';
   c.lineWidth=hit?Math.max(o.strokeWidth,10):o.strokeWidth;
   c.globalAlpha=hit?1:(o.alpha??1);
@@ -2587,8 +2589,8 @@ function applyColorToSel(){
   else if(o.type==='shape'){
     o.strokeColor=fgH;
     const fm=document.getElementById('shapeFill')?.value;
-    if(fm==='fg') o.fillColor=fgH;
-    else if(fm==='bg') o.fillColor=bgH;
+    if(fm==='fg'){o.fillColor=fgH;delete o._horizonFillAlpha;}
+    else if(fm==='bg'){o.fillColor=bgH;delete o._horizonFillAlpha;}
   }
   else if(o.type==='text'){
     o.color=fgH;
@@ -2908,6 +2910,7 @@ function applyShapeFill(){
     const o=objs.find(x=>x.id===selId);
     if(isObjEditable(o)&&o.type==='shape'){
       o.fillColor=fm==='fg'?fgH:fm==='bg'?bgH:'transparent';
+      delete o._horizonFillAlpha;
       renderAll(); saveHDebounced();
     }
   }
@@ -3394,7 +3397,7 @@ function copySelected(){
   const copied=selected.map(o=>cloneEppObject(o,{keepImage:false}));
   const content=copied.length===1?copied[0]:{type:'objectGroup',objects:copied};
   if(!setObjectClipboard(content))return;
-  const payload=JSON.stringify({_eppClip:true,version:3,obj:clip,copiedAt:clip._copiedAt});
+  const payload=HorizonClipboard.stringify(selected,'easy-paint-pad',clip._copiedAt);
   navigator.clipboard?.writeText(payload).catch(()=>{});
 }
 function translateObject(o,dx,dy){
@@ -3426,7 +3429,7 @@ async function pasteClipboard(){
   const source=clip.type==='objectGroup'?clip.objects:[clip];
   if(!Array.isArray(source)||!source.length)return;
   const copies=source.map(o=>cloneEppObject(o,{keepImage:false}));
-  copies.forEach(c=>{c.id=mkId();c.layerId=activeLayerId;delete c._copiedAt;});
+  copies.forEach(c=>{c.id=mkId();c.layerId=activeLayerId;if(c.type==='image')c.isBackground=false;delete c._copiedAt;});
   if(!placeObjectAtLastClick(copies))copies.forEach(c=>translateObject(c,20,20));
   // 이미지 로딩 순서가 달라도 전체 객체를 원래 순서대로 한 번에 추가한다.
   try{
@@ -3641,7 +3644,8 @@ async function trySmartPaste(){
           sysText=await navigator.clipboard.readText();
           if(sysText){
             try{
-              const parsed=JSON.parse(sysText);
+              const shared=HorizonClipboard.parse(sysText,'easy-paint-pad');
+              const parsed=shared?{_eppClip:true,obj:{type:'objectGroup',objects:shared.objects},copiedAt:shared.copiedAt}:JSON.parse(sysText);
               if(parsed._eppClip&&parsed.obj){
                 sysTextTime=parsed.copiedAt||0;
                 const internalTime=clip?._copiedAt||0;
@@ -5098,6 +5102,7 @@ document.getElementById('saveAsModal').addEventListener('click',e=>{if(e.target=
 
 // ════════════ KEYBOARD ════════════
 document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&['c','v','x'].includes(e.key.toLowerCase())&&e.target.closest?.('input,textarea,select,[contenteditable="true"]'))return;
   if(actTed){
     if((e.metaKey||e.ctrlKey)&&e.key==='b'){e.preventDefault();toggleTStyle('bold');}
     if((e.metaKey||e.ctrlKey)&&e.key==='i'){e.preventDefault();toggleTStyle('italic');}
@@ -5260,11 +5265,12 @@ document.addEventListener('keydown', e=>{
 // ════════════ 클립보드 이미지 붙여넣기 ════════════
 document.addEventListener('paste', e=>{
   // 텍스트 에디터는 자체 rich-text paste 처리
-  if(actTed) return;
+  if(actTed||e.target.closest?.('input,textarea,select,[contenteditable="true"]')) return;
   const plain=e.clipboardData?.getData('text/plain')||'';
   if(plain){
     try{
-      const parsed=JSON.parse(plain);
+      const shared=HorizonClipboard.parse(plain,'easy-paint-pad');
+      const parsed=shared?{_eppClip:true,obj:{type:'objectGroup',objects:shared.objects},copiedAt:shared.copiedAt}:JSON.parse(plain);
       if(parsed?._eppClip&&parsed.obj){
         e.preventDefault();
         const incoming=cloneEppObject(parsed.obj,{keepImage:false});
@@ -5459,9 +5465,9 @@ function saveEPP(){
 function loadEPP(file){
   if(!file) return;
   // 이전 버전에서 저장된 EPP는 isBackground 플래그가 없으므로,
-  // 아무 객체도 배경으로 표시돼 있지 않으면 가장 아래(첫 번째) 이미지 객체를 배경으로 간주
+  // 명시적인 true/false 표시가 없는 구형 문서만 첫 이미지를 배경으로 간주한다.
   function ensureBackgroundFlag(list){
-    if(list.some(o=>o.isBackground)) return;
+    if(list.some(o=>Object.hasOwn(o,'isBackground'))) return;
     const firstImg=list.find(o=>o.type==='image');
     if(firstImg) firstImg.isBackground=true;
   }
@@ -5886,6 +5892,7 @@ function buildEPPJson(projectTitle=projectFileName||curFile||'untitled'){
   const saveObjs = objs.map(o=>{
     if(o.type==='image'){
       const c=Object.assign({},o);
+      c.isBackground=!!o.isBackground;
       try{ c._src=o.img?.src||''; }catch(e){ c._src=''; }
       delete c.img;
       return c;
