@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.20 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.21 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.1.20 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.1.21 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.1.20</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.1.21</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -2221,6 +2221,7 @@ let drawing=false,dSX=0,dSY=0,actStroke=null,actShape=null,actTed=null;
 let editingId=null; // 현재 편집 중인 텍스트 객체 id (렌더에서 숨김 처리)
 let isDirty=false; // 미저장 변경사항 추적
 let dragging=false,dragLX=0,dragLY=0;
+let dragMoved=false,dragCopyPending=false;
 let lastClickX=0,lastClickY=0,lastCanvasClickAt=0; // 마지막 캔버스 클릭 위치/시각 (붙여넣기 기준)
 let resC=false,resDir='',resSX=0,resSY=0,resOW=0,resOH=0;
 
@@ -3229,6 +3230,8 @@ function commitT(){
     const newObj=normalizeRichTextObject(Object.assign({id:mkId(),type:'text',x:ed._x,y:ed._y,text:plainText,layerId:activeLayerId},props));
     objs.push(newObj); selId=newObj.id;
   }
+  // 화면에 표시하는 단일 선택과 다음 Shift+클릭의 기준을 함께 갱신한다.
+  selIds=selId!=null?[selId]:[];
   saveH(); tool='select2'; document.querySelectorAll('[id^="tool-"]').forEach(b=>b.classList.remove('active')); document.querySelectorAll('#tool-select2').forEach(b=>b.classList.add('active')); HC.style.cursor='default'; document.getElementById('statusTool').textContent='도구: 선택/이동';
 }
 
@@ -3470,10 +3473,12 @@ function duplicateSelected(){
   objs.push(c);saveH();selObj(c.id);renderAll();refreshList();
 }
 function duplicateInPlace(){
-  if(!selId)return;
-  const o=objs.find(x=>x.id===selId);if(!isObjEditable(o))return;
-  const c=cloneEppObject(o,{keepImage:true});if(!c)return;c.id=mkId();
-  objs.push(c);selId=c.id;refreshList();
+  const ids=new Set(selIds.length?selIds:(selId!=null?[selId]:[]));
+  const copies=objs.filter(o=>ids.has(o.id)&&isObjEditable(o)).map(o=>{
+    const c=cloneEppObject(o,{keepImage:true});c.id=mkId();return c;
+  });
+  if(!copies.length)return;
+  objs.push(...copies);selIds=copies.map(o=>o.id);selId=selIds.at(-1);refreshList();
 }
 // ── 범위 선택에서 실제 편집 가능한 픽셀 객체만 수집
 // 숨김 레이어 / 잠긴 레이어 / 개별 잠금 객체는 범위 선택의 복사·이동·삭제 대상에서 제외한다.
@@ -4228,6 +4233,7 @@ function onDown(e){
     if(hit){
       if(e.shiftKey){
         // Shift+클릭: 다중 선택에 추가/제거 토글
+        if(selId!=null&&!selIds.includes(selId))selIds=[selId];
         if(selIds.includes(hit.id)){
           selIds=selIds.filter(id=>id!==hit.id);
         } else {
@@ -4245,23 +4251,22 @@ function onDown(e){
       }
       // 이미 다중 선택된 객체 중 하나를 클릭하면 선택을 유지한 채 그룹 이동
       if(selIds.length>1 && selIds.includes(hit.id)){
-        dragging=true;dragLX=x;dragLY=y;HC.style.cursor='move';
+        dragging=true;dragLX=x;dragLY=y;dragMoved=false;dragCopyPending=!!(e.ctrlKey||e.metaKey);
+        HC.style.cursor=dragCopyPending?'copy':'move';
         return;
       }
       selObj(hit.id);
-      if(e.ctrlKey||e.metaKey){
-        // Ctrl/Cmd+드래그: 원본은 그대로 두고 복제본을 드래그
-        duplicateInPlace();
-        HC.style.cursor='copy';
-      }
+      // 클릭만으로 복제하지 않고 실제 드래그가 시작될 때 한 번 복제한다.
+      dragMoved=false;dragCopyPending=!!(e.ctrlKey||e.metaKey);
+      HC.style.cursor=dragCopyPending?'copy':'move';
       dragging=true;dragLX=x;dragLY=y;
-      if(!(e.ctrlKey||e.metaKey)) HC.style.cursor='move';
     }
     else{
       // 배경 이미지가 오른쪽 목록에서 이미 선택된 상태라면, 그 선택이 풀리기 전까지는
       // 캔버스 드래그로도 이동 가능하게 함(마퀴 시작으로 처리하지 않음)
       const selBg = selId!=null && objs.find(o=>o.id===selId && o.isBackground);
       if(selBg && isObjEditable(selBg) && !e.shiftKey){
+        dragMoved=false;dragCopyPending=false;
         dragging=true; dragLX=x; dragLY=y; HC.style.cursor='move';
       } else {
         // 빈 공간 드래그 시작: 영역선택(마퀴)으로 다중 선택 준비
@@ -4363,7 +4368,13 @@ function onMove(e){
     HC.style.cursor=target?(!isObjEditable(target)?'not-allowed':'move'):'default';
   }
   if(dragging&&selId){
-    const dx=x-dragLX,dy=y-dragLY;dragLX=x;dragLY=y;
+    const dx=x-dragLX,dy=y-dragLY;
+    if(!dragMoved){
+      if(Math.max(Math.abs(dx),Math.abs(dy))<=3)return;
+      dragMoved=true;
+      if(dragCopyPending){duplicateInPlace();dragCopyPending=false;}
+    }
+    dragLX=x;dragLY=y;
     if(selIds.length>1){
       // 다중 선택: 선택된 모든 객체를 함께 이동
       selIds.forEach(id=>{
@@ -4444,7 +4455,11 @@ document.addEventListener('mousemove',e=>{
 document.addEventListener('mouseup',()=>{
   if(svgR&&svgPointerId===null){ finishSvgResize(); return; }
   if(selMarqueeActive){ finishSelMarquee(); return; }
-  if(dragging){ dragging=false; HC.style.cursor='default'; saveH(); return; }
+  if(dragging){
+    dragging=false;dragCopyPending=false;HC.style.cursor='default';
+    if(dragMoved)saveH();
+    dragMoved=false;return;
+  }
   if(marqueDragging){
     marqueDragging=false; HC.style.cursor='crosshair';
     // pendingCut 상태에서 mouseup: 실제 드래그 없이 클릭만 함
