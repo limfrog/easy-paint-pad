@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.22 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.23 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.1.22 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.1.23 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.1.22</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.1.23</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -2348,6 +2348,7 @@ function onOpacityChange(tgt,val){
     const sl=document.getElementById('fgOS1');if(sl)sl.value=val;
   }else{
     bgA=a;
+    if(actTed)actTed._boxBgAlpha=a;
     const v=document.getElementById('bgOV1');if(v)v.textContent=val+'%';
     const sl=document.getElementById('bgOS1');if(sl)sl.value=val;
   }
@@ -2399,6 +2400,7 @@ function updateMobileColorTargetUI(){
   if(b)b.classList.toggle('active',mobileColorTarget==='bg');
 }
 function applyBackgroundColorToSel(){
+  if(actTed){actTed._boxBgColor=bgH;actTed._boxBgAlpha=bgA;return;}
   if(!selId)return;
   const o=objs.find(x=>x.id===selId);if(!isObjEditable(o))return;
   if(o.type==='shape'&&document.getElementById('shapeFill')?.value==='bg'){
@@ -2570,6 +2572,7 @@ function applyPickedColor(c){
   } else if(cpTgt==='boxbg'){
     fBoxBgColor=c;
     updBoxBgBtn();
+    if(actTed){actTed._boxBgColor=c;return;}
     if(selId){const o=objs.find(x=>x.id===selId);if(isObjEditable(o)&&o.type==='text'){o.boxBgColor=c;renderAll();saveHDebounced();}}
   } else if(cpTgt==='fg'){
     fgH=c;applyColorToSel();updColorUI();
@@ -2585,7 +2588,7 @@ function applyColorToSel(){
   if(actTed){
     const range=getEditorRange(actTed);
     if(range&&!range.collapsed) applyRichStyleToEditorSelection(actTed,{color:fgH});
-    else actTed.style.color=fgH;
+    else{actTed.style.color=fgH;actTed._objectColor=fgH;}
     return;
   }
   if(!selId)return;
@@ -3152,6 +3155,10 @@ function openTed(x,y,exist=null){
   ed.autocorrect='off'; ed.autocapitalize='off';
   ed.setAttribute('autocorrect','off'); ed.setAttribute('autocapitalize','off');
   ed._x=x; ed._y=y; ed._oid=null; ed._savedObj=null; ed._savedIdx=null;
+  // 선택 글자의 색과 텍스트 객체(박스 테두리)의 기본색을 별도로 보관한다.
+  ed._objectColor=exist?.color||fgH;
+  ed._boxBgColor=exist?.boxBgColor||bgH;
+  ed._boxBgAlpha=exist?.boxBgAlpha??bgA;
   if(exist){
     const idx=objs.findIndex(o=>o.id===exist.id);
     if(idx>-1){ ed._savedObj=objs.splice(idx,1)[0]; ed._savedIdx=idx; ed._oid=exist.id; }
@@ -3226,7 +3233,7 @@ function commitT(){
     if(ed._savedObj){ const insertAt=ed._savedIdx!=null?Math.min(ed._savedIdx,objs.length):objs.length; objs.splice(insertAt,0,ed._savedObj); }
     renderAll(); return;
   }
-  const props={fontFamily:normalizeFF(fFam),fontSize:fSz,lineHeight:fLineHeight,bold:fBold,italic:fItal,underline:fUnder,color:fgH,alpha:fgA,_edW:edW,_edH:edH,box:fBox,boxPad:fBoxPad,boxRadius:fBoxRadius,boxBorder:fBoxBorder,boxFill:fBoxFill,boxBgColor:fBoxFill?bgH:'',boxBgAlpha:fBoxFill?bgA:1,richLines:richLines};
+  const props={fontFamily:normalizeFF(fFam),fontSize:fSz,lineHeight:fLineHeight,bold:fBold,italic:fItal,underline:fUnder,color:ed._objectColor??fgH,alpha:fgA,_edW:edW,_edH:edH,box:fBox,boxPad:fBoxPad,boxRadius:fBoxRadius,boxBorder:fBoxBorder,boxFill:fBoxFill,boxBgColor:ed._boxBgColor,boxBgAlpha:ed._boxBgAlpha,richLines:richLines};
   if(ed._savedObj){
     const o=normalizeRichTextObject(Object.assign(ed._savedObj,props)); o.text=plainText;
     const insertAt=ed._savedIdx!=null?Math.min(ed._savedIdx,objs.length):objs.length; objs.splice(insertAt,0,o); selId=o.id;
