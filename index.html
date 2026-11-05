@@ -506,11 +506,11 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <div class="mf">
         <label>크기 비율</label>
         <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
-          <input type="range" id="resizeSlider" min="10" max="400" value="100"
+          <input type="range" id="resizeSlider" min="10" max="400" step="any" value="100"
             style="-webkit-appearance:none;flex:1;height:6px;border-radius:3px;background:#ddd;outline:none;cursor:pointer"
             oninput="onResizeSlider(this.value)">
           <div style="display:flex;align-items:center;gap:3px">
-            <input type="number" id="resizePct" value="100" min="10" max="400" style="width:52px;height:28px;border:1px solid var(--border);border-radius:5px;text-align:center;font-size:13px;font-family:inherit;outline:none;background:var(--bar);color:var(--text)" oninput="onResizePct(this.value)">
+            <input type="number" id="resizePct" value="100" min="10" max="400" step="any" style="width:52px;height:28px;border:1px solid var(--border);border-radius:5px;text-align:center;font-size:13px;font-family:inherit;outline:none;background:var(--bar);color:var(--text)" oninput="onResizePct(this.value)" onblur="finishResizePct()">
             <span style="font-size:13px;color:var(--muted)">%</span>
           </div>
         </div>
@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.23 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.24 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.1.23 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.1.24 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.1.23</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.1.24</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -5695,9 +5695,9 @@ function openResize(){
 function closeResize(){
   document.getElementById('resizeModal').classList.add('hidden');
 }
-function setResizePct(pct){
+function setResizePct(pct,updateInput=true){
   pct=Math.min(400,Math.max(10,pct));
-  document.getElementById('resizePct').value=pct;
+  if(updateInput)document.getElementById('resizePct').value=pct;
   document.getElementById('resizeSlider').value=pct;
   // 슬라이더 배경 그라디언트
   const sl=document.getElementById('resizeSlider');
@@ -5705,12 +5705,22 @@ function setResizePct(pct){
   sl.style.background=`linear-gradient(to right,var(--accent) ${p}%,#ddd ${p}%)`;
   const nW=Math.round(CW*pct/100), nH=Math.round(CH*pct/100);
   document.getElementById('resizeNewSize').textContent=`${nW} × ${nH} px`;
+  return pct;
 }
-function onResizeSlider(val){ setResizePct(parseInt(val)||100); }
-function onResizePct(val){ setResizePct(parseInt(val)||100); }
+function onResizeSlider(val){ setResizePct(Number(val)); }
+function onResizePct(val){
+  // 입력 중인 빈칸이나 한 자리 숫자는 보정하지 않고 유효한 값만 미리보기에 반영한다.
+  const pct=Number(val);
+  if(val.trim()!==''&&Number.isFinite(pct)&&pct>=10&&pct<=400)setResizePct(pct,false);
+}
+function finishResizePct(){
+  const val=document.getElementById('resizePct').value;
+  const pct=val.trim()===''?NaN:Number(val);
+  return setResizePct(Number.isFinite(pct)?pct:Number(document.getElementById('resizeSlider').value));
+}
 
 function executeResize(){
-  const pct=parseInt(document.getElementById('resizePct').value)||100;
+  const pct=finishResizePct();
   if(pct===100){closeResize();return;}
   const scale=pct/100;
   const nW=Math.round(CW*scale), nH=Math.round(CH*scale);
