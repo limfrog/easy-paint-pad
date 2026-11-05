@@ -721,7 +721,7 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
       <img src="./icon-128.png" width="80" height="80" style="border-radius:20px;box-shadow:0 4px 16px rgba(0,0,0,.2)" onerror="this.style.display='none'">
       <div>
         <div style="font-size:20px;font-weight:700;color:var(--text)">Easy Paint Pad</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.24 · HTML5 Canvas 기반</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px">버전 2.1.25 · HTML5 Canvas 기반</div>
       </div>
       <div style="font-size:12px;color:var(--muted);line-height:1.8;text-align:left;background:var(--ribbon);border-radius:8px;padding:12px 16px;width:100%;box-sizing:border-box">
         브라우저에서 바로 사용하는 그림판 앱입니다.<br>
@@ -744,14 +744,14 @@ input[type=range].qslider::-webkit-slider-thumb{-webkit-appearance:none;width:14
 <!-- 사용설명서 모달 -->
 <div class="modal-overlay hidden" id="guideModal">
   <div class="modal" style="width:760px;max-width:96vw">
-    <div class="modal-head">📖 Easy Paint Pad 2.1.24 사용설명서
+    <div class="modal-head">📖 Easy Paint Pad 2.1.25 사용설명서
       <button class="modal-xbtn" onclick="document.getElementById('guideModal').classList.add('hidden')">✕</button>
     </div>
     <div class="modal-body" style="padding:0;max-height:74vh;overflow-y:auto;gap:0">
       <div style="padding:16px 20px;font-size:12px;line-height:1.85;color:var(--text)">
 
         <div style="padding:10px 12px;margin-bottom:14px;border:1px solid var(--border);border-radius:8px;background:var(--ribbon);font-size:11px;color:var(--muted)">
-          <b style="color:var(--text)">Easy Paint Pad 2.1.24</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
+          <b style="color:var(--text)">Easy Paint Pad 2.1.25</b>은 그림 편집과 악보 보조 작업을 위한 브라우저 기반 편집기입니다.<br>
           이미지·텍스트·도형·오선을 객체로 배치하고, 레이어별로 관리한 뒤 EPP 프로젝트나 이미지/PDF로 저장할 수 있습니다.
         </div>
 
@@ -2242,8 +2242,9 @@ let marqueSnapX=0,marqueSnapY=0;  // 현재 snap 그리는 위치
 let marqueSnapW=0,marqueSnapH=0;  // snap 크기
 let marqueCommitted=false; // 픽셀을 잘라낸 상태인지
 let marqueLayerId=null;   // 범위 선택을 시작한 레이어에 고정 (다른 레이어 잠금/선택 변화의 영향 차단)
-let marqueKeyboardMove=null; // 방향키로 시작한 이동: Esc 복원과 한 번의 Undo를 위한 원본
+let marqueKeyboardMove=null; // 방향키 이동/범위 복제: Esc 복원과 한 번의 Undo를 위한 원본
 let marqueKeyboardCommitPromise=null;
+let marqueDocumentRevision=0,marqueDuplicatePending=false;
 let pixelClip=null;        // 복사된 픽셀 클립보드 {snap, w, h}
 
 // 영역 선택 박스를 SVG 오버레이에 그리기 + 픽셀 snap 임시 렌더
@@ -3467,6 +3468,10 @@ async function pasteClipboard(){
   else{selIds=copies.map(c=>c.id);selId=selIds[selIds.length-1];drawSel();renderAll();refreshList();}
 }
 function duplicateSelected(){
+  if(tool==='marque'){
+    if(marqueRect||marqueSnap)duplicateMarqueInPlace();
+    return;
+  }
   // Ctrl+D / 컨텍스트 메뉴 '복제': 원본과 정확히 같은 위치에 복제한다.
   if(selIds.length>1){
     if(selIds.every(id=>!isObjEditable(objs.find(o=>o.id===id))))return;
@@ -3503,6 +3508,43 @@ function getEditableMarquePixelObjs(sx,sy,sw,sh){
     const b=getBounds(o);
     return b.x<sx+sw && b.x+b.w>sx && b.y<sy+sh && b.y+b.h>sy;
   });
+}
+
+async function duplicateMarqueInPlace(){
+  if(marqueDuplicatePending||marqueDrawing||marqueDragging)return;
+  const targetLayerId=marqueLayerId||activeLayerId;
+  if(isLayerLocked(targetLayerId)||!isLayerVisible(targetLayerId))return;
+  marqueDuplicatePending=true;
+  const revision=marqueDocumentRevision;
+  try{
+    let snap,x,y,w,h;
+    if(marqueSnap){
+      snap=marqueSnap;x=marqueSnapX;y=marqueSnapY;w=marqueSnapW;h=marqueSnapH;
+      // 이동 중인 픽셀은 현재 위치에 확정한 뒤 복제본만 이동할 수 있게 한다.
+      const committed=await marqueCommit();
+      if(!committed||revision!==marqueDocumentRevision||isLayerLocked(targetLayerId))return;
+    }else if(marqueRect){
+      x=Math.max(0,Math.round(Math.min(marqueRect.x,marqueRect.x+marqueRect.w)));
+      y=Math.max(0,Math.round(Math.min(marqueRect.y,marqueRect.y+marqueRect.h)));
+      w=Math.min(Math.round(Math.abs(marqueRect.w)),CW-x);h=Math.min(Math.round(Math.abs(marqueRect.h)),CH-y);
+      if(w<=0||h<=0)return;
+      const pixels=getEditableMarquePixelObjs(x,y,w,h);
+      if(!pixels.length)return;
+      const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+      const c=canvas.getContext('2d');c.translate(-x,-y);
+      pixels.forEach(o=>drawO(c,o,false));snap=c.getImageData(0,0,w,h);
+    }else return;
+    const move={objs:objs.slice(),ready:true,action:null,wasDirty:isDirty,title:document.getElementById('titleText').textContent};
+    move.done=new Promise(resolve=>{move.resolve=resolve;});
+    marqueKeyboardMove=move;
+    marqueSnap=snap;marqueSnapX=x;marqueSnapY=y;marqueSnapW=w;marqueSnapH=h;
+    marqueRect={x,y,w,h};marqueLayerId=targetLayerId;marqueCommitted=true;
+    marqueDragCopy=null;marquePendingCut=false;marquePendingCopy=false;
+    selId=null;clearSel();isDirty=true;
+    const title=document.getElementById('titleText');if(!title.textContent.startsWith('●'))title.textContent='● '+title.textContent;
+    renderAll();refreshList();
+    document.getElementById('statusObj').textContent=`범위 복제: ${w}×${h} px — 방향키/드래그 이동 · Enter 확정 · Esc 취소`;
+  }finally{marqueDuplicatePending=false;}
 }
 
 // ── 픽셀 영역 잘라내기: flatten → 선택 영역 픽셀 추출 → 원본 지우기
@@ -3616,6 +3658,7 @@ function settleKeyboardMarque(){
 }
 
 function clearMarqueForDocument(){
+  marqueDocumentRevision++;
   if(marqueKeyboardMove)marqueCancel(true);
   marqueSnap=null;marqueRect=null;marqueLayerId=null;marqueCommitted=false;
   marqueDragging=false;marqueDrawing=false;marquePendingCut=false;marquePendingCopy=false;marqueDragCopy=null;
@@ -3625,10 +3668,11 @@ function clearMarqueForDocument(){
 // ── 선택 픽셀을 현재 위치에 붙여넣기(확정)
 function marqueCommit(){
   if(!marqueSnap) return;
-  if(marqueKeyboardMove&&!marqueKeyboardMove.ready){marqueKeyboardMove.action='commit';return;}
+  if(marqueKeyboardMove&&!marqueKeyboardMove.ready){marqueKeyboardMove.action='commit';return marqueKeyboardMove.done;}
   const keyboardMove=marqueKeyboardMove;
   if(keyboardMove)marqueKeyboardCommitPromise=keyboardMove.done;
   const commitObjs=objs;
+  const commitRevision=marqueDocumentRevision;
   marqueKeyboardMove=null;
   // 비동기 onload 전에 위치값 즉시 캡처 (나중에 변경되어도 안전)
   const snapData=marqueSnap;
@@ -3643,17 +3687,25 @@ function marqueCommit(){
   tmp.width=snapW; tmp.height=snapH;
   tmp.getContext('2d').putImageData(snapData,0,0);
   const img=new Image();
+  let finish;
+  const done=new Promise(resolve=>{finish=resolve;});
   img.onload=()=>{
-    if(keyboardMove&&objs!==commitObjs){keyboardMove.resolve();marqueKeyboardCommitPromise=null;return;}
+    if(commitRevision!==marqueDocumentRevision||(keyboardMove&&objs!==commitObjs)){
+      if(keyboardMove){keyboardMove.resolve(false);marqueKeyboardCommitPromise=null;}
+      finish(false);return;
+    }
     objs.push({id:mkId(),type:'image',img,x:snapX,y:snapY,w:snapW,h:snapH,alpha:1,layerId:targetLayerId});
     saveH(); renderAll();
     document.getElementById('statusObj').textContent='';
-    if(keyboardMove){keyboardMove.resolve();marqueKeyboardCommitPromise=null;}
+    if(keyboardMove){keyboardMove.resolve(true);marqueKeyboardCommitPromise=null;}
+    finish(true);
   };
   img.onerror=()=>{
     if(keyboardMove){marqueKeyboardMove=keyboardMove;marqueKeyboardCommitPromise=null;marqueCancel(true);}
+    finish(false);
   };
   img.src=tmp.toDataURL();
+  return done;
 }
 
 // ── 선택 취소 (Delete: snap 버림 / Esc: snap 원위치 후 확정)
@@ -3668,7 +3720,7 @@ function marqueCancel(restore){
     drawMarque();renderAll();refreshList();
     document.getElementById('statusObj').textContent='';
     if(!restore)saveH();
-    move.resolve();
+    move.resolve(false);
     return;
   }
   const targetLayerId=marqueLayerId||activeLayerId;
@@ -5331,7 +5383,7 @@ const ctxMenu = document.getElementById('ctxMenu');
 
 function showCtx(x, y){
   // 선택 항목에 따라 메뉴 아이템 활성/비활성
-  const hasSel = selId !== null || marqueIds.length > 0;
+  const hasSel = tool==='marque'?!!(marqueRect||marqueSnap):selId !== null || marqueIds.length > 0;
   ctxMenu.querySelectorAll('.ctx-item').forEach(el=>{
     const a = el.getAttribute('onclick')?.match(/ctxAction\('(.+?)'\)/)?.[1];
     if(a==='copy'||a==='duplicate'||a==='delete'||a==='layerUp'||a==='layerDown')
